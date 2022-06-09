@@ -17,3 +17,5 @@ store
 bundle-input
 bundle-output
 context
+
+.DS_Store

@@ -1,0 +1,14 @@
+script: script.R
+
+artefacts:
+  - data:
+      description: Plot of assay
+      filenames:
+        - assay.pdf
+
+resources:
+  data/
+
+packages:
+  - dplyr
+  - ggplot2
