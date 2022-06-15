@@ -84,6 +84,7 @@ df %>%
       geom_tile(alpha = 0.8) +
       geom_text(size = 2) +
       scale_x_continuous(breaks = 1:9) +
+      scale_fill_viridis_c() +
       labs(title = paste0("File: ", x$assay[1]), x = "", y = "", fill = "log10 copies + 1 (per uL)") +
       theme_minimal() +
       theme(
@@ -129,5 +130,44 @@ df %>%
       ) +
       theme_minimal()
   })
+
+dev.off()
+
+#' Moving to analysis of the amplification curves
+#' Question: where is the threshold Rn value?
+file <- files[1]
+
+amp <- readxl::read_excel(
+  paste0("data/", file),
+  sheet = "Amplification Data",
+  skip = 42
+)
+
+amp <- amp %>%
+  select(Well, Cycle, Rn, "Delta Rn") %>%
+  left_join(
+    df %>%
+      filter(assay == file) %>%
+      select(Well, row, column, barcode, condition, Ct),
+    by = "Well"
+  ) %>%
+  filter(!is.na(row), !is.na(column), column > 2)
+
+pdf("amp.pdf", h = 8, w = 6.25)
+
+amp %>%
+  ggplot(aes(x = Cycle, y = Rn, col = condition)) +
+  geom_line(size = 1) +
+  geom_vline(
+    data = select(amp, row, column, Ct), aes(xintercept = Ct),
+    col = "grey40", linetype = "dashed", alpha = 0.8
+  ) +
+  facet_grid(row ~ column) +
+  theme_minimal() +
+  scale_color_viridis_c() +
+  labs(col = "log10 copies + 1 (per uL)") +
+  theme(
+    legend.position = "bottom"
+  )
 
 dev.off()

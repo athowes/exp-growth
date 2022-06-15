@@ -2,10 +2,11 @@ script: script.R
 
 artefacts:
   - data:
-      description: Plots of assay and Ct calibration
+      description: Plots of assay, Ct calibration and amplfication curve
       filenames:
         - assay.pdf
         - ct.pdf
+        - amp.pdf
 
 resources:
   data/
