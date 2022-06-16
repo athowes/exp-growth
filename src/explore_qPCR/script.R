@@ -148,7 +148,7 @@ amp <- amp %>%
   left_join(
     df %>%
       filter(assay == file) %>%
-      select(Well, row, column, barcode, condition, Ct),
+      select(Well, row, column, barcode, condition, Ct, `Ct Threshold`),
     by = "Well"
   ) %>%
   filter(!is.na(row), !is.na(column), column > 2)
@@ -156,10 +156,14 @@ amp <- amp %>%
 pdf("amp.pdf", h = 8, w = 6.25)
 
 amp %>%
-  ggplot(aes(x = Cycle, y = Rn, col = condition)) +
+  ggplot(aes(x = Cycle, y = `Delta Rn`, col = condition)) +
   geom_line(size = 1) +
   geom_vline(
     data = select(amp, row, column, Ct), aes(xintercept = Ct),
+    col = "grey40", linetype = "dashed", alpha = 0.8
+  ) +
+  geom_hline(
+    data = select(amp, row, column, `Ct Threshold`), aes(yintercept = `Ct Threshold`),
     col = "grey40", linetype = "dashed", alpha = 0.8
   ) +
   facet_grid(row ~ column) +
