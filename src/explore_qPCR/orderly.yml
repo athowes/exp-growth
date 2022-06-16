@@ -7,6 +7,10 @@ artefacts:
         - assay.pdf
         - ct.pdf
         - amp.pdf
+  - data:
+      description: Description of qPCR as generative model
+      filenames:
+        - qPCR.pdf
 
 resources:
   data/
