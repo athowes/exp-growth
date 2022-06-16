@@ -22,7 +22,7 @@ $$
 n_{it} = n_{i0} (1 + E)^t
 $$
 where the efficiency $E$ has some prior, likely centered on one.
-* Number of copies $n_{it}$ is connected to flourescene data $f_{it}$ by $f_{it} \sim g(n_{it})$
+* Number of copies $n_{it}$ is connected to fluorescence data $f_{it}$ by $f_{it} \sim g(n_{it})$
   * What's $g$?
 * We observe $(f_{0t}, \ldots, f_{iT})$ where $T$ is the total number of PCR cycles run
 * We want to infer $N_{i0}$
