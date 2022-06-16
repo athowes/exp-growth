@@ -1,33 +1,57 @@
 ---
-title: "qPCR generative model draft"
+title: "A generative model for qPCR data"
 author: "Adam Howes"
-date: '2022-06-16'
+bibliography: citations.bib
 output:
   pdf_document: default
-  html_document: default
 ---
 
-* Let $i$ index the well position
-* Initially there are $N_{i0}$ copies of the virus
-* For each copy, consider that processing (i.e. DNA being released from inside the phage capsid) occurs independently between copies and is successful with probability $r_i$ ("release") drawn from some prior e.g. $r_i \sim \text{Beta}(a, b)$
-* During dilution, a known fixed proportion $d_i \in [0, 1]$ ("dilution") of the copies are independently sampled, before being added to a known fixed amount of water
-  * How does the fixed amount of water change things statistically?
-* Call the number of copies of the virus retained $n_{i0}$, then we have
+## Statistical model
+
+Let $i$ index the well position and suppose that there are initially $N_{i0} \in \mathbb{N}^+$ copies of the virus.
+[TODO: Add indexes for other relevant features (e.g. treatment)]
+
+### Processing and dilution
+
+[TODO: Diagram of processing and dilution]
+
+We first consider a processing step (e.g. DNA being released from inside the phage capsid) which occurs independently between copies and is successful with probability $r_i$ drawn from some prior e.g. $r_i \sim \text{Beta}(a, b)$.
+Next, during dilution, a known fixed proportion $d_i \in [0, 1]$ of the copies are independently sampled, before being added to a known fixed amount of water [TODO: How to include the water in the model].
+If the the number of copies of the virus retained is $n_{i0}$, then we have
 \begin{align}
 p_i &\sim \text{Beta}(a, b), \\
 n_{i0} &\sim \text{Binomial}(N_{i0}, r_i d_i).
 \end{align}
-* Now for the amplification PCR reaction suppose that the number of copies $n_{it}$ at cycle $t \in \mathbb{N}^+$ is
+
+### Amplification
+
+Suppose that the number of copies during amplification at cycle $t \in \mathbb{N}^+$ is $n_{it}$.
+Amplification typically results in a logistic curve which may be described by parameteric models.
+Two possible strategies are: (1) model the exponential component of the logistic curve, (2) model the complete curve [@ritz2008qpcr].
+
+For the first strategy, the exponential component must be isolated, before modelling the exponential growth according to
 $$
 n_{it} = n_{i0} (1 + E)^t
 $$
-where the efficiency $E$ has some prior, likely centered on one.
-* Number of copies $n_{it}$ is connected to fluorescence data $f_{it}$ by $f_{it} \sim g(n_{it})$
-  * What's $g$?
-* We observe $(f_{0t}, \ldots, f_{iT})$ where $T$ is the total number of PCR cycles run
-* We want to infer $N_{i0}$
-* Infer $C_q$ value 
+where the efficiency $E$ might have some prior centered at one.
 
-## To-do
+We consider two possible models for the complete logistic curve.
+The four-parameter logistic model (4PL) is of the form
+$$
+n_{it} = n_{i\infty} + \frac{n_{i0} - n_{i\infty}}{\left(1 + (t / m)^\beta \right)}
+$$
+where $n_{i\infty}$ is the estimated asympotote of the curve as $t \to \infty$, $n_{i0}$ is the estimated initial number of copies, $\beta$ is the slope and $m$ is the mid-range concentration [TODO: Better name for $m$].
+The five-parameter logistic model (5PL) is similar, but adds an additional parameter $s$ which accounts for asymmetry
+$$
+n_{it} = n_{i\infty} + \frac{n_{i0} - n_{i\infty}}{\left(1 + (t / m)^\beta \right)^s}
+$$
 
-* Add indexes for other relevant features (e.g. treatment)
+The number of copies $n_{it}$ is connected to fluorescence data $f_{it}$ by some function $g$ such that $f_{it} \sim g(n_{it})$.
+We observe $(f_{0t}, \ldots, f_{iT})$ where $T$ is the total number of PCR cycles run.
+The aim of our analysis is to infer $N_{i0}$, as well as the $C_q$ value for comparison against the software generated value. 
+
+## Implementation
+
+We will build and expand our model step-by-step using the Stan probabilistic programming language...
+
+# Bibliography 
