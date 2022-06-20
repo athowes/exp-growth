@@ -1,0 +1,29 @@
+---
+title: "Compositional Data"
+output: pdf_document
+date: '2022-06-15'
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+* https://www.ncbi.nlm.nih.gov/pmc/articles/PMC6459172/pdf/gi-2019-17-1-e6.pdf
+* Compositional data is of the form $x = (x_1, \ldots, x_k)$ such that $x_i > 0$ and $\sum_i x_i = T$
+* The total $T$ is defined not to be of importance
+* Equivalence to some member of the unit simplex $\mathcal{S} = \{x = (x_1, \ldots, x_k); \quad x_i > 0; \quad \sum_i x_i = 1\}$
+* Desirata for CoDA
+  * Permutation invariance: changing the order of the parts doesn't matter
+  * Scale invariance: any member of the equivalence class should have the same results
+  * Sub-compositional coherence: results for a subset should be coherent with results for the whole composition
+* Log-ratio $\log(x_i / x_j)$
+* Log-contrast $\sum_i a_i \log(x_i); \quad \sum_i a_i = 0$
+* Additive log-transformation $\text{alr}(x) = (\log(x_i / x_k))_{i < k}$
+* Centered log-transformation $\text{clr}(x) = (\log(x_i / g(x)))_i$ where $g(x) = (\prod_i x_i)^{1 / k}$ is the geometric mean
+* Isometric log-transformation (not described)
+
+* Microbiome abundance table is a matrix $X$ with $n$ rows (samples) and $k$ columns (taxa) where each entry $x_ij$ provides the number of reads corresponding to taxon $j$ in sample $i$
+* Other elements which could be available include the sample data, the taxonomy table, and the phylogenetic tree
+
+* Alpha diversity: within sample diversity
+* Richness $R_\text{obs}$ gives the number of species

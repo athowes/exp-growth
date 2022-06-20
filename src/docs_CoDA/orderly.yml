@@ -1,0 +1,15 @@
+script: script.R
+
+artefacts:
+  - data:
+      description: Notes on compositional data analysis
+      filenames:
+        - coda.pdf
+
+resources:
+  data/
+
+packages:
+  - dplyr
+  - ggplot2
+
