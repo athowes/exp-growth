@@ -3,6 +3,7 @@
 data {
   int T;                                     // Total number of cycles
   int<lower=0, upper=1> flag_run_estimation; // Should the likelihood be used?
+  int n[T];                              // Observed counts
 }
 
 parameters {
@@ -17,15 +18,21 @@ transformed parameters {
 
   // 4PL logistic
   for(t in 1:T) {
-    lambda[t] = n_inf +  ((n_0 - n_inf) / pow(1 + (t / m), beta));
+    lambda[t] = n_inf +  ((n_0 - n_inf) / (1 + pow(t / m, beta)));
   }
 }
 
 model {
-  n_0 ~ normal(1, 0.1);
-  n_inf ~ normal(10, 0.1);
-  m ~ normal(10, 0.1);
-  beta ~ normal(5, 0.1);
+  // Prior
+  n_0 ~ normal(1, 0.5);    // Give a plausible range for the initial amount
+  n_inf ~ normal(10, 0.5); // Give a plausible range for the final amount
+  m ~ normal(10, 0.5);
+  beta ~ normal(5, 0.5);
+
+  // Likelihood (evaluated if flag_run_estimation is TRUE)
+  if(flag_run_estimation == 1){
+    n ~ poisson(lambda);
+  }
 }
 
 generated quantities {
