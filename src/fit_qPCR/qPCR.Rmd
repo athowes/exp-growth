@@ -32,10 +32,16 @@ Two possible strategies for analysing this curve: (1) only model the exponential
 In the first strategy, the exponential component must be isolated by some method.
 Onlt then, it can be modelled according to e.g.
 $$
-n_c = n_0 (1 + E)^t
+n_c = n_0 (1 + E)^c
 $$
 where the efficiency $E$ may have a prior centered at one.
 We will not take this approach for the time being.
+Note that the first derivative is
+$$
+\frac{\text{d}n_c}{\text{d}c} = n_0 \log(1 + E) (1 + E)^c
+$$
+
+
 
 Alternatively it is possible to model the complete curve.
 We consider two possible models.
@@ -54,6 +60,7 @@ $$
 $$
 such that the derivative is proportional to the slope parameter $b$.
 <!-- TODO: Connect this up to the efficiency $E$. -->
+<!-- Next step is to answer in which section of the logistic curve does it look like the exponential? -->
 
 The five-parameter logistic model (5PL) is similar to the four-parameter, but with an additional parameter $s$ which accounts for asymmetry of the curve
 $$
@@ -97,6 +104,20 @@ n_0 &\sim \text{Binomial}(N_0, r d).
 
 # Implementation
 
-We will build and expand our model step-by-step using the Stan probabilistic programming language...
+We will build and expand our model step-by-step using the Stan probabilistic programming language.
+
+First start with the 4PL model plus a linear connection to fluorescence.
+Simulate data from the model, setting `flag_run_estimation = 0`.
+Then take the first simulated data, and attempt to infer the truth it was generated from.
+Plot below contains prior on counts $n$ (blue), simulated fluorescence (circles), and inferred counts (orange) based on the simulated data.
+
+```{r}
+knitr::include_graphics("n-prior-data-posterior.pdf")
+```
+
+# Stan code
+
+```{stan, output.var="ex", code=readLines('4pl.stan')}
+```
 
 # Bibliography 

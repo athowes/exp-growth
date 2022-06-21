@@ -16,9 +16,9 @@ sim_summary <- summary(sim)$summary %>%
   mutate(t = c(1, 1, 1, 1, 1, 1, 1, 1:cycles, 1:cycles, 1))
 
 n_prior <- sim_summary %>%
-  filter(substr(rowname, 1, 1) == "n")
+  filter(substr(rowname, 1, 2) == "n[")
 
-pdf("n-prior.pdf", h = 5, w = 6.25)
+pdf("n-prior.pdf", h = 3, w = 6.25)
 
 n_prior %>%
   ggplot(aes(x = t, y = mean, ymin = `2.5%`, ymax = `97.5%`)) +
@@ -37,7 +37,7 @@ f_sim <- rstan::extract(sim, )$f_sim %>%
 f_sim[1, ]
 df_one <- data.frame(f = f_sim[1, ], t = 1:cycles)
 
-pdf("n-prior-data.pdf", h = 5, w = 6.25)
+pdf("n-prior-data.pdf", h = 3, w = 6.25)
 
 n_prior %>%
   ggplot(aes(x = t, y = mean, ymin = `2.5%`, ymax = `97.5%`)) +
@@ -64,18 +64,21 @@ fit_summary <- summary(fit)$summary %>%
   mutate(t = c(1, 1, 1, 1, 1, 1, 1, 1:cycles, 1:cycles, 1))
 
 n_posterior <- fit_summary %>%
-  filter(substr(rowname, 1, 1) == "n")
+  filter(substr(rowname, 1, 2) == "n[")
 
-pdf("n-prior-data-posterior.pdf", h = 5, w = 6.25)
+pdf("n-prior-data-posterior.pdf", h = 3, w = 6.25)
 
 n_prior %>%
   ggplot(aes(x = t, y = mean, ymin = `2.5%`, ymax = `97.5%`)) +
-  geom_line(linetype = "dashed") +
+  geom_line(linetype = "dashed", col = cbpalette[1], size = 1) +
   geom_ribbon(alpha = 0.5, fill = cbpalette[1]) +
-  geom_point(data = df_one, aes(x = t, y = f), inherit.aes = FALSE) +
+  geom_point(
+    data = df_one, aes(x = t, y = f),
+    inherit.aes = FALSE, shape = 21
+  ) +
   geom_line(
     data = n_posterior, aes(x = t, y = mean), inherit.aes = FALSE,
-    linetype = "dashed"
+    linetype = "dashed", col = cbpalette[3], size = 1
   ) +
   geom_ribbon(
     data = n_posterior, aes(x = t, ymin = `2.5%`, ymax = `97.5%`), inherit.aes = FALSE,
