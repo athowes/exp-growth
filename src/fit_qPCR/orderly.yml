@@ -10,9 +10,9 @@ artefacts:
         - n-prior-data-posterior.pdf
 
 resources:
+  analysis.R
   4pl.stan
   5pl.stan
-  4pl.R
 
 packages:
   - dplyr

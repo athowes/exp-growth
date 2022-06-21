@@ -1,5 +1,7 @@
 cbpalette <- c("#56B4E9", "#009E73", "#E69F00", "#F0E442", "#0072B2", "#D55E00", "#CC79A7", "#999999")
 
+#' 4PL
+
 compiled <- rstan::stan_model("4pl.stan")
 cycles <- 20
 
@@ -86,5 +88,26 @@ n_prior %>%
   ) +
   theme_minimal() +
   labs(x = "t", y = "fluorescence")
+
+dev.off()
+
+#' 4PL with processing step
+
+compiled <- rstan::stan_model("4pl-processing.stan")
+cycles <- 20
+
+sim <- rstan::sampling(
+  compiled,
+  data = list(T = cycles, flag_run_estimation = 0, f = rep(0, cycles))
+)
+
+sim_summary <- rstan::summary(sim)$summary %>%
+  as.data.frame() %>%
+  tibble::rownames_to_column()
+
+pdf("4pl-processing-stan-plots.pdf", h = 5, w = 6.25)
+
+rstan::stan_plot(sim)
+rstan::stan_trace(sim)
 
 dev.off()

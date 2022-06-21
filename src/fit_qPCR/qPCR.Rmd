@@ -9,15 +9,26 @@ output:
 abstract: |
   The purpose of this document is to specify a generative model for qPCR data which captures
   a realistic data generating process sufficiently to outperform the "standard curve" simple
-  linear regression approach. We anticipate the majority of the benefit coming for small counts,
-  close to the limit of detection (LOD).
+  linear regression approach. We anticipate the majority of the performance benefit will
+  be when there are few initial virus copies, close to the limit of detection (LOD).
 ---
 
 \newpage
 
 <!-- # Background -->
 
-<!-- [TODO] -->
+<!-- * https://www.degruyter.com/document/doi/10.2202/1544-6115.1427/pdf -->
+<!-- * https://sfamjournals.onlinelibrary.wiley.com/doi/epdf/10.1111/jam.14309 -->
+<!-- * https://link.springer.com/content/pdf/10.1007/s00217-007-0683-z.pdf -->
+<!-- * https://onlinelibrary.wiley.com/doi/epdf/10.1002/edn3.29 -->
+
+# The standard curve method
+
+$$
+C_q = a + b\log_{10}(\text{copies per ml})
+$$
+
+Key relationship is that alterations of the number of copies by factors of ten should result in the same additive change in $C_q$.
 
 # Statistical model
 
@@ -74,11 +85,10 @@ For now, we will consider that this relationship is linear such that
 $$
 f_t = \beta_0 + \beta \cdot n_c 
 $$
-where $\beta_0$ is the background fluouresence and $\beta$ is the fluoresence produced by a single count.
+where $\beta_0$ is the background fluorescence and $\beta$ is the fluorescence produced by a single count.
 The prior distributions $\beta_0 \sim p(\beta_0)$ and $\beta \sim p(\beta)$ may be determined by expert elicitation.
 
 We observe $(f_0, \ldots, f_C)$ where $C$ is the total number of PCR cycles run.
-Primary aims of our analysis may be to infer $N_0$, as well as the $C_q$ value for comparison against the value produced using conventional methods.
 
 ## Extension to stochastic cycle times
 
@@ -86,7 +96,7 @@ Although each cycle is intended to run for one time step, it's possible this may
 Instead, suppose that cycles $c = 1, \dots, C$ occur at times $t = t_1, \ldots, t_C$ with cycle time intervals $\kappa_c = t_{c + 1} - t_c$ between cycles.
 A simple model for the intervals would be to have $\kappa_c \sim \mathcal{N}(\mu_\kappa, {\sigma_\kappa}^2)$.
 The interval mean could be fixed to one or have a prior centered at one.
-Cycle times are recovered via the cumulative sum of intervals $t_c = \sum_{b < c} \kappa_b$.
+Cycle times are recovered via the cumulative sum of intervals $t_c = \sum_{d < c} \kappa_d$.
 
 ## Extension to processing and dilution
 
@@ -98,13 +108,19 @@ Then, during a further dilution step, a known fixed proportion $d \in [0, 1]$ of
 <!-- [TODO: How to include the water in the model] -->
 If the the number of copies of the virus retained is $n_0$, then we have
 \begin{align}
-p &\sim \text{Beta}(a, b), \\
+r &\sim \text{Beta}(a, b), \\
 n_0 &\sim \text{Binomial}(N_0, r d).
 \end{align}
+It's also possible that we assume $d = 1$ for simplicity. 
 
 # Implementation
 
 We will build and expand our model step-by-step using the Stan probabilistic programming language.
+
+Primary inferential aims of our analysis may be to:
+
+1. Infer $N_0$,
+2. Infer $C_q$ for comparison against the value produced using conventional methods.
 
 First start with the 4PL model plus a linear connection to fluorescence.
 Simulate data from the model, setting `flag_run_estimation = 0`.
