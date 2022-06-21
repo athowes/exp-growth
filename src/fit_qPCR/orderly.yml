@@ -1,0 +1,20 @@
+script: script.R
+
+artefacts:
+  - data:
+      description: qPCR modelling results
+      filenames:
+        - qPCR.pdf
+        - n-prior.pdf
+        - n-prior-data.pdf
+        - n-prior-data-posterior.pdf
+
+resources:
+  4pl.stan
+  5pl.stan
+  4pl.R
+
+packages:
+  - dplyr
+  - ggplot2
+  - rstan
