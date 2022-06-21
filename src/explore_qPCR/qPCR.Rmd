@@ -3,66 +3,87 @@ title: "A generative model for qPCR data"
 author: "Adam Howes"
 bibliography: citations.bib
 output:
-  pdf_document: default
+  pdf_document:
+    toc: true
+    number_sections: true
+abstract: |
+  The purpose of this document is to specify a generative model for qPCR data which captures
+  a realistic data generating process sufficiently to outperform the "standard curve" simple
+  linear regression approach. We anticipate the majority of the benefit coming for small counts,
+  close to the limit of detection (LOD).
 ---
 
-# Background
+\newpage
 
-[TODO]
+<!-- # Background -->
+
+<!-- [TODO] -->
 
 # Statistical model
 
-Suppose that there are initially $N_0 \in \mathbb{N}^+$ copies of the virus.
-[TODO: Let $i$ index the well position and add indexes for other relevant features (e.g. treatment)]
+<!-- [TODO: Let $i$ index the well position and add indexes for other relevant features (e.g. treatment)] -->
 
-## Processing and dilution
+## Copy amplification
 
-[TODO: Diagram of processing and dilution]
+Suppose that there are initially $n_0 \in \mathbb{N}^+$ copies of the virus and the number of copies during amplification at cycle $c \in \mathbb{N}^+$ is $n_c$.
+Amplification typically results in a logistic curve which may be described by parameteric models.
+Two possible strategies for analysing this curve: (1) only model the exponential component, (2) model the complete curve [@ritz2008qpcr].
 
-We first consider a processing step e.g. DNA being released from inside the phage capsid which occurs independently between copies
-This step is successful with probability $r$ drawn from some prior e.g. $r \sim \text{Beta}(a, b)$.
+In the first strategy, the exponential component must be isolated by some method.
+Onlt then, it can be modelled according to e.g.
+$$
+n_c = n_0 (1 + E)^t
+$$
+where the efficiency $E$ may have a prior centered at one.
+We will not take this approach for the time being.
 
-Next, during dilution, a known fixed proportion $d \in [0, 1]$ of the copies are independently sampled, before being added to a known fixed amount of water.
-[TODO: How to include the water in the model]
+Alternatively it is possible to model the complete curve.
+We consider two possible models.
+The four-parameter logistic model (4PL) is of the form
+$$
+n_c = n_\infty + \frac{n_0 - n_\infty}{\left(1 + (c / m)^\beta \right)}
+$$
+where $n_\infty = \lim_{t \to \infty} n_c$ is the asympotote of the curve at infinity, and $n_0 = \lim_{t \to 0} n_c$ is the estimated initial number of copies, $\beta$ is the slope and $m$ is the midpoint (see "[generalised logistic function](https://en.wikipedia.org/wiki/Generalised_logistic_function)").
+
+The five-parameter logistic model (5PL) is similar to the four-parameter, but with an additional parameter $s$ which accounts for asymmetry of the curve
+$$
+n_c = n_\infty + \frac{n_0 - n_\infty}{\left(1 + (c / m)^\beta \right)^s}
+$$
+
+## Extension linking copies to fluorescence
+
+The number of copies $n_c$ is connected to fluorescence data $f_t$ by some function $g$ such that $f_t \sim g(n_c)$.
+For now, we will consider that this relationship is linear such that
+$$
+f_t = \beta_0 + \beta \cdot n_c 
+$$
+where $\beta_0$ is the background fluouresence and $\beta$ is the fluoresence produced by a single count.
+The prior distributions $\beta_0 \sim p(\beta_0)$ and $\beta \sim p(\beta)$ may be determined by expert elicitation.
+
+We observe $(f_0, \ldots, f_C)$ where $C$ is the total number of PCR cycles run.
+Primary aims of our analysis may be to infer $N_0$, as well as the $C_q$ value for comparison against the value produced using conventional methods.
+
+## Extension to stochastic cycle times
+
+Although each cycle is intended to run for one time step, it's possible this may not really be the case.
+Instead, suppose that cycles $c = 1, \dots, C$ occur at times $t = t_1, \ldots, t_C$ with cycle time intervals $\kappa_c = t_{c + 1} - t_c$ between cycles.
+A simple model for the intervals would be to have $\kappa_c \sim \mathcal{N}(\mu_\kappa, {\sigma_\kappa}^2)$.
+The interval mean could be fixed to one or have a prior centered at one.
+Cycle times are recovered via the cumulative sum of intervals $t_c = \sum_{b < c} \kappa_b$.
+
+## Extension to processing and dilution
+
+<!-- [TODO: Diagram of processing and dilution] -->
+
+Prior to amplification, we might consider a processing step where e.g DNA is released from inside the phage capsid.
+Suppose that processing occurs independently between copies and is successful with probability $r$ drawn from some prior such as $r \sim \text{Beta}(a, b)$.
+Then, during a further dilution step, a known fixed proportion $d \in [0, 1]$ of the copies are independently sampled, before being added to a known fixed amount of water.
+<!-- [TODO: How to include the water in the model] -->
 If the the number of copies of the virus retained is $n_0$, then we have
 \begin{align}
 p &\sim \text{Beta}(a, b), \\
 n_0 &\sim \text{Binomial}(N_0, r d).
 \end{align}
-
-## Amplification
-
-Suppose that the number of copies during amplification at cycle $t \in \mathbb{N}^+$ is $n_t$.
-Amplification typically results in a logistic curve which may be described by parameteric models.
-Two possible strategies are: (1) model the exponential component of the logistic curve, (2) model the complete curve [@ritz2008qpcr].
-
-For the first strategy, the exponential component must be isolated, before modelling the exponential growth according to
-$$
-n_t = n_0 (1 + E)^t
-$$
-where the efficiency $E$ might have some prior centered at one.
-
-We consider two possible models for the complete logistic curve.
-The four-parameter logistic model (4PL) is of the form
-$$
-n_t = n_\infty + \frac{n_0 - n_\infty}{\left(1 + (t / m)^\beta \right)}
-$$
-where $n_\infty = \lim_{t \to \infty} n_t$ is the asympotote of the curve at infinity, and $n_0 = \lim_{t \to 0} n_t$ is the estimated initial number of copies, $\beta$ is the slope and $m$ is the midpoint.
-[TODO: Better name for $m$].
-
-The five-parameter logistic model (5PL) is similar to the four-parameter, but with an additional parameter $s$ which accounts for asymmetry
-$$
-n_t = n_\infty + \frac{n_0 - n_\infty}{\left(1 + (t / m)^\beta \right)^s}
-$$
-The number of copies $n_t$ is connected to fluorescence data $f_t$ by some function $g$ such that $f_t \sim g(n_t)$.
-For now, we will consider that this relationship is linear such that
-$$
-f_t = \beta_0 + \beta \cdot n_t 
-$$
-where $\beta_0$ is the background fluouresence and $\beta$ is the fluoresence produced by a single count.
-
-We observe $(f_0, \ldots, f_T)$ where $T$ is the total number of PCR cycles run.
-The aim of our analysis is to infer $N_0$, as well as the $C_q$ value for comparison against the software generated value. 
 
 # Implementation
 
