@@ -44,10 +44,20 @@ $$
 n_c = n_\infty + \frac{n_0 - n_\infty}{\left(1 + (c / m)^\beta \right)}
 $$
 where $n_\infty = \lim_{t \to \infty} n_c$ is the asympotote of the curve at infinity, and $n_0 = \lim_{t \to 0} n_c$ is the estimated initial number of copies, $\beta$ is the slope and $m$ is the midpoint (see "[generalised logistic function](https://en.wikipedia.org/wiki/Generalised_logistic_function)").
+The first derivative of $n_c$ is
+$$
+\frac{\text{d}n_c}{\text{d}c} = - (n_0 - n_{\inf}) \frac{1}{\left(1 + (c / m)^\beta \right)^2} \beta \frac{c^{\beta - 1}}{m^\beta}.
+$$
+Evaluating this at the midpoint, $m$, gives
+$$
+\frac{\text{d}n_c}{\text{d}c} \rvert_{c = m} = - (n_0 - n_{\inf}) \cdot \frac{\beta}{4m} = \frac{(n_{\inf} - n_0)}{4m} \cdot \beta,
+$$
+such that the derivative is proportional to the slope parameter $\beta$.
+<!-- TODO: Connect this up to the efficiency $E$. -->
 
 The five-parameter logistic model (5PL) is similar to the four-parameter, but with an additional parameter $s$ which accounts for asymmetry of the curve
 $$
-n_c = n_\infty + \frac{n_0 - n_\infty}{\left(1 + (c / m)^\beta \right)^s}
+n_c = n_\infty + \frac{n_0 - n_{\inf}}{\left(1 + (c / m)^\beta \right)^s}
 $$
 
 ## Extension linking copies to fluorescence
