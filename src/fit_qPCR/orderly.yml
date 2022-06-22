@@ -2,17 +2,31 @@ script: script.R
 
 artefacts:
   - data:
-      description: qPCR modelling results
+      description: qPCR modelling draft
       filenames:
         - qPCR.pdf
-        - n-prior.pdf
-        - n-prior-data.pdf
-        - n-prior-data-posterior.pdf
+  - data:
+      description: 4PL model testing
+      filenames:
+        - 4pl/prior.pdf
+        - 4pl/prior-stan.pdf
+        - 4pl/prior-data.pdf
+        - 4pl/prior-data-posterior.pdf
+        - 4pl/posterior-stan.pdf
+  - data:
+      description: 4PL model testing
+      filenames:
+        - 4pl-processing/prior.pdf
+        - 4pl-processing/prior-stan.pdf
+        - 4pl-processing/prior-data.pdf
+        - 4pl-processing/prior-data-posterior.pdf
+        - 4pl-processing/posterior-stan.pdf
 
 resources:
-  analysis.R
-  4pl.stan
-  5pl.stan
+  - analysis.R
+  - 4pl/4pl.stan
+  - 4pl-processing/4pl-processing.stan
+  - 5pl/5pl.stan
 
 packages:
   - dplyr

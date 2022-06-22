@@ -15,14 +15,26 @@ abstract: |
 
 \newpage
 
-<!-- # Background -->
+# Introduction
 
 <!-- * https://www.degruyter.com/document/doi/10.2202/1544-6115.1427/pdf -->
 <!-- * https://sfamjournals.onlinelibrary.wiley.com/doi/epdf/10.1111/jam.14309 -->
 <!-- * https://link.springer.com/content/pdf/10.1007/s00217-007-0683-z.pdf -->
 <!-- * https://onlinelibrary.wiley.com/doi/epdf/10.1002/edn3.29 -->
 
-# The standard curve method
+## Background
+
+<!-- https://www.thermofisher.com/content/dam/LifeTech/Documents/PDFs/PG1503-PJ9169-CO019879-Re-brand-Real-Time-PCR-Understanding-Ct-Value-Americas-FHR.pdf -->
+<!-- https://www.gene-quantification.de/miqe-webinar-short-transcript.pdf -->
+
+* Many factors impact the absolute value of $C_t$ besides the concentration of the target
+* Artefacts from the reaction mix or instrument can change the fluoresence measurements
+* Fluorescence emission of any molecule depends on environmental factors (pH, salt concentration)
+* Rn is a measure of fluorescence, calculated as a ratio of the FAM dye to ROX dye
+* $\Delta$Rn is Rn minus the baseline fluorescence
+* $C_q$ is the cycle number at which the amplification curve intersects some threshold line
+
+## The standard curve method
 
 $$
 C_q = a + b\log_{10}(\text{copies per ml})
@@ -125,15 +137,15 @@ Primary inferential aims of our analysis may be to:
 First start with the 4PL model plus a linear connection to fluorescence.
 Simulate data from the model, setting `flag_run_estimation = 0`.
 Then take the first simulated data, and attempt to infer the truth it was generated from.
-Plot below contains prior on counts $n$ (blue), simulated fluorescence (circles), and inferred counts (orange) based on the simulated data.
+Plot below contains prior on $f$ (blue), simulated fluorescence (circles), and inferred fluorescence (orange) based on the simulated data.
 
 ```{r}
-knitr::include_graphics("n-prior-data-posterior.pdf")
+knitr::include_graphics("4pl/prior-data-posterior.pdf")
 ```
 
 # Stan code
 
-```{stan, output.var="ex", code=readLines('4pl.stan')}
+```{stan, output.var="ex", code=readLines('4pl/4pl.stan')}
 ```
 
 # Bibliography 
