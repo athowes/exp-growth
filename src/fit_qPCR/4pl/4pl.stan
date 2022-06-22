@@ -14,14 +14,14 @@ data {
 
 parameters {
   // 4PL
-  real<lower=0> n_0;     // Asymptote as t -> 0
-  real<lower=0> n_inf;   // Asymptote as t -> inf
-  real<lower=0> m;       // Midpoint
-  real<lower=0> b;       // Slope
+  // real<lower=0> n_0;    // Asymptote as t -> 0 (assume this is zero)
+  real<lower=0> n_inf;     // Asymptote as t -> inf
+  real<lower=0> m;         // Midpoint
+  real<lower=0> b;         // Slope
   // Link to fluoresence
-  real<lower=0> beta_0;  // Intercept (assume positive intercept)
-  real<lower=0> beta;    // Slope (assume count fluoresence relationship is positive)
-  real<lower=0> sigma_f; // Standard deviation
+  // real<lower=0> beta_0; // Background fluoresence (assume this is removed)
+  real<lower=0> beta;      // Slope (assume counts proportional to fluoresence)
+  real<lower=0> sigma_f;   // Standard deviation of fluoresence
 }
 
 transformed parameters {
@@ -29,28 +29,28 @@ transformed parameters {
 
   // 4PL logistic
   for(t in 1:T) {
-    n[t] = four_parameter_logistic(t, n_0, n_inf, m, b);
+    n[t] = four_parameter_logistic(t, 0, n_inf, m, b);
   }
 }
 
 model {
   // Prior
-  n_0 ~ normal(1, 0.5);    // Give a plausible range for the initial amount
-  n_inf ~ normal(10, 0.5); // Give a plausible range for the final amount
-  m ~ normal(10, 0.5);
-  b ~ normal(5, 0.5);
+  // n_0 ~ normal(1, 0.5); // A plausible range for the initial amount
+  n_inf ~ normal(8, 0.5);  // A plausible range for the final amount
+  m ~ normal(20, 5);       // The midpoint at around 20 with high uncertainty
+  b ~ normal(10, 1);       // And the slope at around 10
 
-  beta_0 ~ normal(0, 0.5);
-  beta ~ normal(1, 0.1);
-  sigma_f ~ normal(0, 0.25);
+  // beta_0 ~ normal(0, 0.5);
+  beta ~ normal(1, 0.1);     // Assume to be a 1-to-1 relationship approximately
+  sigma_f ~ normal(0, 0.1); // Some amount of signal noise in fluoresence measurements
 
   // Likelihood (evaluated if flag_run_estimation is TRUE)
   if(flag_run_estimation == 1){
-    f ~ normal(beta_0 + beta * n, sigma_f);
+    f ~ normal(beta * n, sigma_f);
   }
 }
 
 generated quantities {
   real f_sim[T];
-  f_sim = normal_rng(beta_0 + beta * n, sigma_f);
+  f_sim = normal_rng(beta * n, sigma_f);
 }
