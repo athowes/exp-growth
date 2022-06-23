@@ -4,8 +4,11 @@ author: "Adam Howes"
 bibliography: citations.bib
 output:
   pdf_document:
-    toc: true
-    number_sections: true
+    toc: yes
+    number_sections: yes
+  html_document:
+    toc: yes
+    df_print: paged
 abstract: |
   The purpose of this document is to specify a generative model for qPCR data which captures
   a realistic data generating process sufficiently to outperform the "standard curve" simple
@@ -13,7 +16,18 @@ abstract: |
   be when there are few initial virus copies, close to the limit of detection (LOD).
 ---
 
-\newpage
+```{r echo = FALSE}
+knitr::opts_chunk$set(
+  echo = FALSE,
+  warning = FALSE,
+  message = FALSE,
+  dpi = 320,
+  out.width = "95%",
+  fig.align = 'center'
+)
+```
+
+\clearpage
 
 # Introduction
 
@@ -27,20 +41,33 @@ abstract: |
 <!-- https://www.thermofisher.com/content/dam/LifeTech/Documents/PDFs/PG1503-PJ9169-CO019879-Re-brand-Real-Time-PCR-Understanding-Ct-Value-Americas-FHR.pdf -->
 <!-- https://www.gene-quantification.de/miqe-webinar-short-transcript.pdf -->
 
-* Many factors impact the absolute value of $C_t$ besides the concentration of the target
-* Artefacts from the reaction mix or instrument can change the fluoresence measurements
-* Fluorescence emission of any molecule depends on environmental factors (pH, salt concentration)
+* Quantitative polymerase chain reaction (qPCR) is a technique used to detect and quantify DNA sequence concentration in a sample
+* The target DNA sequence is amplified in cycles
+* $C_q$ is the cycle number at which the amplification curve intersects some threshold line
+* Many factors impact the absolute value of $C_q$ besides the concentration of the target DNA
+* The amplification curve is determined by measuring fluorescence
 * Rn is a measure of fluorescence, calculated as a ratio of the FAM dye to ROX dye
 * $\Delta$Rn is Rn minus the baseline fluorescence
-* $C_q$ is the cycle number at which the amplification curve intersects some threshold line
+* Artefacts from the reaction mix or instrument can change the fluoresence measurements
+* Fluorescence emission of any molecule depends on environmental factors (pH, salt concentration)
+
+* Concentration factor
+* Amount going in is unkown
+* How many DNA are in a phagemid
+* Use an electron microscope
+* $10^8$ copies of DNA
+* Accuracy of Nanodrop
+* Phagemid particle
+* Concentration in PFUs
+* Experiment specific multiplicative units?
+* Daisychain approach of having a relative standard
 
 ## The standard curve method
 
-$$
-C_q = a + b\log_{10}(\text{copies per ml})
-$$
-
-Key relationship is that alterations of the number of copies by factors of ten should result in the same additive change in $C_q$.
+* Let $x$ be $\log_{10}(\text{copies per ml})$
+* Carry out experiments for $x = 
+* $C_q = a + b$
+* Key relationship is that alterations of the number of copies by factors of ten should result in the same additive change in $C_q$
 
 # Statistical model
 
@@ -63,8 +90,6 @@ Note that the first derivative is
 $$
 \frac{\text{d}n_c}{\text{d}c} = n_0 \log(1 + E) (1 + E)^c
 $$
-
-
 
 Alternatively it is possible to model the complete curve.
 We consider two possible models.
@@ -115,37 +140,50 @@ Cycle times are recovered via the cumulative sum of intervals $t_c = \sum_{d < c
 <!-- [TODO: Diagram of processing and dilution] -->
 
 Prior to amplification, we might consider a processing step where e.g DNA is released from inside the phage capsid.
-Suppose that processing occurs independently between copies and is successful with probability $r$ drawn from some prior such as $r \sim \text{Beta}(a, b)$.
-Then, during a further dilution step, a known fixed proportion $d \in [0, 1]$ of the copies are independently sampled, before being added to a known fixed amount of water.
-<!-- [TODO: How to include the water in the model] -->
-If the the number of copies of the virus retained is $n_0$, then we have
-\begin{align}
-r &\sim \text{Beta}(a, b), \\
-n_0 &\sim \text{Binomial}(N_0, r d).
-\end{align}
-It's also possible that we assume $d = 1$ for simplicity. 
+Suppose that a proportion $r$ of DNA are successfully released.
+We assume that reducing the initial copies of the virus by a factor of 10 increased the midpoint $m$ by one unit.
+One possible way to do this is to set $\log(r) \sim \mathcal{N}^{+}(0, 1)$, then altering the midpoint such that $m \leftarrow m + \log(r)$.
+This approach isn't very mechanistic and won't give the desired zero inflated behaviour.
+It also doesn't take into account losses from dilution.
+
+\clearpage
 
 # Implementation
 
-We will build and expand our model step-by-step using the Stan probabilistic programming language.
+We will build and expand our model step-by-step using the Stan probabilistic programming language via `rstan` [@rstan].
+The primary aims of our analysis are:
 
-Primary inferential aims of our analysis may be to:
+1. To infer $N_0$ directly
+2. To infer $C_q$, allowing a comparison against the value produced by default in-built software
+3. To model multiple experiments jointly, eventually resulting in a posterior distribution over the standard curve which appropriately deals with the non-Gaussian uncertainty.
+For example, a property we would like to confer is inflated errors at high $C_q$ values, corresponding to low initial numbers of copies.
 
-1. Infer $N_0$,
-2. Infer $C_q$ for comparison against the value produced using conventional methods.
+## Model 1: copy amplification with link to fluorescence
 
-First start with the 4PL model plus a linear connection to fluorescence.
-Simulate data from the model, setting `flag_run_estimation = 0`.
-Then take the first simulated data, and attempt to infer the truth it was generated from.
-Plot below contains prior on $f$ (blue), simulated fluorescence (circles), and inferred fluorescence (orange) based on the simulated data.
+We first start by considering a model including the 4PL logistic copy amplification component linearly linked to florescence data.
+The Stan code for this model is given in Section \ref{sec:model1}.
+We follow a Bayesian workflow [@gelman2020bayesian] by specifying a prior, generating data from that prior, then fitting the model to the generated data.
+This may be done using one Stan file by including a parameter `flag_run_estimation`.
 
-```{r}
+```{r fig.cap="Prior distribution with ten samples from the prior"}
+knitr::include_graphics("4pl/prior-data.pdf")
+```
+
+```{r fig.cap="Prior distribution with ten samples from the prior, and posterior distribution fitted to one sample from the prior."}
 knitr::include_graphics("4pl/prior-data-posterior.pdf")
 ```
 
-# Stan code
+<!-- TODO: Suppose that we know the threshold at which $C_q$ is measured by intersection with the amplification curve. -->
 
-```{stan, output.var="ex", code=readLines('4pl/4pl.stan')}
+\clearpage
+
+# Stan model files
+
+## Model 1 \label{sec:model1}
+
+```{stan, echo=TRUE, eval=FALSE, output.var="ex", code=readLines('4pl/4pl.stan')}
 ```
 
-# Bibliography 
+\clearpage
+
+# Bibliography {-}

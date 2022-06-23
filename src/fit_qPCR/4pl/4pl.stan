@@ -10,6 +10,7 @@ data {
   int T;                                     // Total number of cycles
   int<lower=0, upper=1> flag_run_estimation; // Should the likelihood be used?
   real f[T];                                  // Observed fluorescence data
+  // real<lower=0> threshold;                    // Threshold value
 }
 
 parameters {
@@ -18,6 +19,7 @@ parameters {
   real<lower=0> n_inf;     // Asymptote as t -> inf
   real<lower=0> m;         // Midpoint
   real<lower=0> b;         // Slope
+
   // Link to fluoresence
   // real<lower=0> beta_0; // Background fluoresence (assume this is removed)
   real<lower=0> beta;      // Slope (assume counts proportional to fluoresence)

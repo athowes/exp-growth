@@ -132,7 +132,7 @@ dev.off()
 
 #' Follow the same steps as above
 compiled <- rstan::stan_model("4pl-processing/4pl-processing.stan")
-cycles <- 20
+cycles <- 40
 
 sim <- rstan::sampling(
   compiled,
@@ -151,10 +151,10 @@ pdf("4pl-processing/prior.pdf", h = 3, w = 6.25)
 
 plot_prior <- f_prior %>%
   ggplot(aes(x = t, y = mean, ymin = `2.5%`, ymax = `97.5%`)) +
-  geom_line(size = 1, col = cbpalette[1], linetype = "dashed") +
-  geom_ribbon(alpha = 0.5, fill = cbpalette[1]) +
+  geom_line(size = 1, col = cbpalette[1]) +
+  geom_ribbon(alpha = 0.2, fill = cbpalette[1]) +
   theme_minimal() +
-  labs(x = "t", y = "fluoresence")
+  labs(x = "Cycle number", y = "Fluoresence (Delta Rn)")
 
 plot_prior
 
@@ -170,21 +170,42 @@ dev.off()
 f_sim <- rstan::extract(sim)$f_sim %>%
   as.matrix()
 
-f_sim[1, ]
-df_one <- data.frame(f = f_sim[1, ], t = 1:cycles)
+#' Simulated curves from the prior
+n_curves <- 10
+chosen_curves <- seq(from = 1, to = (100 * (n_curves - 1)) + 1, by = 100)
+f_sim_curves <- f_sim[chosen_curves, 1:40] %>%
+  t() %>%
+  as.data.frame() %>%
+  gather(
+    key = "sim",
+    value = "f"
+  ) %>%
+  mutate(
+    sim = as.numeric(str_remove(sim, "V")),
+    t = rep(1:40, length(chosen_curves)),
+    observed = as.factor(c(rep(1, 40), rep(0, 40 * (n_curves - 1))))
+  )
 
 pdf("4pl-processing/prior-data.pdf", h = 3, w = 6.25)
 
 plot_prior_data <- plot_prior +
-  geom_point(data = df_one, aes(x = t, y = f), inherit.aes = FALSE, shape = 21)
+  geom_line(
+    data = f_sim_curves, aes(x = t, y = f, group = sim, col = observed),
+    inherit.aes = FALSE, alpha = 0.5
+  ) +
+  scale_color_manual(values = c("grey80", "black")) +
+  labs(col = "Observed?")
 
 plot_prior_data
 
 dev.off()
 
+obs <- f_sim_curves %>%
+  filter(observed == 1)
+
 fit <- rstan::sampling(
   compiled,
-  data = list(T = cycles, flag_run_estimation = 1, f = df_one$f)
+  data = list(T = cycles, flag_run_estimation = 1, f = obs$f)
 )
 
 fit_summary <- rstan::summary(fit)$summary %>%
@@ -200,7 +221,7 @@ pdf("4pl-processing/prior-data-posterior.pdf", h = 3, w = 6.25)
 plot_prior_data_posterior <- plot_prior_data +
   geom_line(
     data = f_posterior, aes(x = t, y = mean), inherit.aes = FALSE,
-    linetype = "dashed", col = cbpalette[3], size = 1
+    col = cbpalette[3], size = 1
   ) +
   geom_ribbon(
     data = f_posterior, aes(x = t, ymin = `2.5%`, ymax = `97.5%`), inherit.aes = FALSE,
