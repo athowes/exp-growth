@@ -51,16 +51,16 @@ knitr::opts_chunk$set(
 * Artefacts from the reaction mix or instrument can change the fluoresence measurements
 * Fluorescence emission of any molecule depends on environmental factors (pH, salt concentration)
 
-* Concentration factor
-* Amount going in is unkown
-* How many DNA are in a phagemid
-* Use an electron microscope
-* $10^8$ copies of DNA
-* Accuracy of Nanodrop
-* Phagemid particle
-* Concentration in PFUs
-* Experiment specific multiplicative units?
-* Daisychain approach of having a relative standard
+<!-- * Concentration factor -->
+<!-- * Amount going in is unkown -->
+<!-- * How many DNA are in a phagemid -->
+<!-- * Use an electron microscope -->
+<!-- * $10^8$ copies of DNA -->
+<!-- * Accuracy of Nanodrop -->
+<!-- * Phagemid particle -->
+<!-- * Concentration in PFUs -->
+<!-- * Experiment specific multiplicative units? -->
+<!-- * Daisychain approach of having a relative standard -->
 
 ## The standard curve method
 
@@ -77,88 +77,123 @@ knitr::opts_chunk$set(
 
 Suppose that there are initially $n_0 \in \mathbb{N}^+$ copies of the virus and the number of copies during amplification at cycle $c \in \mathbb{N}^+$ is $n_c$.
 Amplification typically results in a logistic curve which may be described by parameteric models.
-Two possible strategies for analysing this curve: (1) only model the exponential component, (2) model the complete curve [@ritz2008qpcr].
+Two possible strategies for analysing this curve are [@ritz2008qpcr]:
 
-In the first strategy, the exponential component must be isolated by some method.
-Onlt then, it can be modelled according to e.g.
+1. only model the exponential component,
+2. model the complete curve.
+
+### Models for only the exponential component
+
+First, the exponential component must be isolated.
+Then, it can either be modelled deterministically or stochastically.
+
+In the deterministic approach
 $$
 n_c = n_0 (1 + E)^c
 $$
-where the efficiency $E$ may have a prior centered at one.
-We will not take this approach for the time being.
-Note that the first derivative is
+where $E$ is the efficiency.
+The first derivative is
 $$
 \frac{\text{d}n_c}{\text{d}c} = n_0 \log(1 + E) (1 + E)^c
 $$
 
-Alternatively it is possible to model the complete curve.
-We consider two possible models.
+In the stochastic approach, we can use a branching process model
+$$
+n_{c + 1} = n_c + \text{Binomial}(n_c, E)
+$$
+where here the efficiency $E$ must be in the range $(0, 1)$ (if $E \in \{0, 1\}$ then the model is deterministic).
+
+### Models for the complete curve
+
+So far, I am only aware of deterministic models for the complete curve.
+Two examples are the four parameter and five parameter logistic models.
+
 The four-parameter logistic model (4PL) is of the form
 $$
 n_c = n_\infty + \frac{n_0 - n_\infty}{\left(1 + (c / m)^b \right)}
 $$
-where $n_\infty = \lim_{t \to \infty} n_c$ is the asympotote of the curve at infinity, and $n_0 = \lim_{t \to 0} n_c$ is the estimated initial number of copies, $b$ is the slope and $m$ is the midpoint (see "[generalised logistic function](https://en.wikipedia.org/wiki/Generalised_logistic_function)").
+where $n_\infty = \lim_{t \to \infty} n_c$ is the asympotote of the curve at infinity, and $n_0 = \lim_{t \to 0} n_c$ is--in some sense--the initial number of copies, $b$ is the slope and $m$ is the cycle at which the curve passes the midpoint between $n_0$ and $n_\infty$ (I will refer to this as "the midpoint").
 The first derivative of $n_c$ is
 $$
-\frac{\text{d}n_c}{\text{d}c} = - (n_0 - n_{\inf}) \frac{1}{\left(1 + (c / m)^b \right)^2} b \frac{c^{b - 1}}{m^b}.
+\frac{\text{d}n_c}{\text{d}c} = - (n_0 - n_{\infty}) \frac{1}{\left(1 + (c / m)^b \right)^2} b \frac{c^{b - 1}}{m^b}.
 $$
 Evaluating this at the midpoint, $m$, gives
 $$
-\frac{\text{d}n_c}{\text{d}c} \rvert_{c = m} = - (n_0 - n_{\inf}) \cdot \frac{b}{4m} = \frac{(n_{\inf} - n_0)}{4m} \cdot b,
+\frac{\text{d}n_c}{\text{d}c} \rvert_{c = m} = - (n_0 - n_{\infty}) \frac{b}{4m} = \frac{(n_{\infty} - n_0)}{4m} b,
 $$
 such that the derivative is proportional to the slope parameter $b$.
 <!-- TODO: Connect this up to the efficiency $E$. -->
 <!-- Next step is to answer in which section of the logistic curve does it look like the exponential? -->
 
-The five-parameter logistic model (5PL) is similar to the four-parameter, but with an additional parameter $s$ which accounts for asymmetry of the curve
+The five-parameter logistic model (5PL) includes an additional parameter $s$ which accounts for asymmetry of the curve
 $$
-n_c = n_\infty + \frac{n_0 - n_{\inf}}{\left(1 + (c / m)^b \right)^s}
+n_c = n_\infty + \frac{n_0 - n_{\infty}}{\left(1 + (c / m)^b \right)^s}
 $$
 
 ## Extension linking copies to fluorescence
 
-The number of copies $n_c$ is connected to fluorescence data $f_t$ by some function $g$ such that $f_t \sim g(n_c)$.
-For now, we will consider that this relationship is linear such that
+We observe $(\text{Rn}_0, \ldots, \text{Rn}_C)$ where $C$ is the total number of PCR cycles run.
+The number of copies $n_c$ may be connected to fluorescence data $\text{Rn}_c$ by some function $g$ such that $\text{Rn}_c \sim g(n_c)$.
+It is likely sufficient to consider that this relationship is linear such that
 $$
-f_t = \beta_0 + \beta \cdot n_c 
+\text{Rn}_c = \alpha_0 + \alpha n_c + \epsilon_c 
 $$
-where $\beta_0$ is the background fluorescence and $\beta$ is the fluorescence produced by a single count.
-The prior distributions $\beta_0 \sim p(\beta_0)$ and $\beta \sim p(\beta)$ may be determined by expert elicitation.
-
-We observe $(f_0, \ldots, f_C)$ where $C$ is the total number of PCR cycles run.
+where $\alpha_0$ is the background fluorescence, $\alpha$ is the fluorescence produced by a single count, and $\epsilon_c$ is e.g. Gaussian noise.
+qPCR machines may estimate $\alpha_0$ and provide fluoresence data with the background removed (i.e $\Delta$Rn) such that the model can be simplified to
+$$
+\Delta\text{Rn}_c = \alpha n_c + \epsilon_c 
+$$
 
 ## Extension to stochastic cycle times
 
-Although each cycle is intended to run for one time step, it's possible this may not really be the case.
-Instead, suppose that cycles $c = 1, \dots, C$ occur at times $t = t_1, \ldots, t_C$ with cycle time intervals $\kappa_c = t_{c + 1} - t_c$ between cycles.
-A simple model for the intervals would be to have $\kappa_c \sim \mathcal{N}(\mu_\kappa, {\sigma_\kappa}^2)$.
+One idea for making the "deterministic" curve fitting methods more stochastic is to introduce stochastic cycle times.
+Suppose that cycles $c = 1, \dots, C$ occur at times $t = t_1, \ldots, t_C$ with cycle time intervals $\kappa_c = t_{c + 1} - t_c$ between cycles.
+A simple model for the intervals would be $\kappa_c \sim \mathcal{N}(\mu_\kappa, {\sigma_\kappa}^2)$.
 The interval mean could be fixed to one or have a prior centered at one.
-Cycle times are recovered via the cumulative sum of intervals $t_c = \sum_{d < c} \kappa_d$.
+Cycle times are the cumulative sum of intervals $t_c = \sum_{d < c} \kappa_d$.
 
-## Extension to processing and dilution
+## Extension to processing
 
-<!-- [TODO: Diagram of processing and dilution] -->
+<!-- [TODO: Diagram of processing] -->
 
 Prior to amplification, we might consider a processing step where e.g DNA is released from inside the phage capsid.
-Suppose that a proportion $r$ of DNA are successfully released.
-We assume that reducing the initial copies of the virus by a factor of 10 increased the midpoint $m$ by one unit.
-One possible way to do this is to set $\log(r) \sim \mathcal{N}^{+}(0, 1)$, then altering the midpoint such that $m \leftarrow m + \log(r)$.
-This approach isn't very mechanistic and won't give the desired zero inflated behaviour.
-It also doesn't take into account losses from dilution.
+This process should likely be modelled differently depending on the copy amplification model.
+Processing is more natural to include with an exponential amplification model because it is more mechanistic (it's difficult to mechanistically model the logistic curve).
+
+### Processing with exponentation component
+
+Suppose that a proportion $r$ of DNA are successfully released during processing from an initial number $N_0$.
+Then
+$$
+n_0 \sim \text{Binomial}(N_0, r)
+$$
+where some prior could be placed on $r \sim p(r)$.
+
+### Processing with complete curve
+
+We could assume that reducing the initial copies of the virus by a factor of 10 increased the midpoint $m$ by one unit.
+One possible way to do this is to set $\log(r) \sim \mathcal{N}^{+}(0, 1)$, then alter the midpoint such that $m \leftarrow m + \log(r)$.
+This approach won't give the desired zero inflated behaviour.
+
+<!-- ## Extension to dilution -->
+
+<!-- TODO: Correlated dilution errors? -->
 
 \clearpage
 
 # Implementation
 
-We will build and expand our model step-by-step using the Stan probabilistic programming language via `rstan` [@rstan].
 The primary aims of our analysis are:
 
 1. To infer $N_0$ directly
 2. To infer $C_q$, allowing a comparison against the value produced by default in-built software
-3. To model multiple experiments jointly, eventually resulting in a posterior distribution over the standard curve which appropriately deals with the non-Gaussian uncertainty.
+3. To model multiple experiments jointly, eventually resulting in a posterior distribution over the standard curve
+4. To appropriately deal with non-Gaussian uncertainty
 For example, a property we would like to confer is inflated errors at high $C_q$ values, corresponding to low initial numbers of copies.
 
-## Model 1: copy amplification with link to fluorescence
+We will build and expand our model step-by-step using probabilistic programming languages such as Stan [@rstan] or NIMBLE [@nimble].
+
+## Model 1: Logistic curve copy amplification, link to fluorescence
 
 We first start by considering a model including the 4PL logistic copy amplification component linearly linked to florescence data.
 The Stan code for this model is given in Section \ref{sec:model1}.
@@ -177,11 +212,30 @@ knitr::include_graphics("4pl/prior-data-posterior.pdf")
 
 \clearpage
 
-# Stan model files
+## Model 2: Logistic curve copy amplification, link to fluoresence, processing with complete curve
+
+The Stan code for this model is given in Section \ref{sec:model2}.
+
+```{r fig.cap="Prior distribution with ten samples from the prior"}
+knitr::include_graphics("4pl-processing/prior-data.pdf")
+```
+
+```{r fig.cap="Prior distribution with ten samples from the prior, and posterior distribution fitted to one sample from the prior."}
+knitr::include_graphics("4pl-processing/prior-data-posterior.pdf")
+```
+
+\clearpage
+
+# Model files
 
 ## Model 1 \label{sec:model1}
 
 ```{stan, echo=TRUE, eval=FALSE, output.var="ex", code=readLines('4pl/4pl.stan')}
+```
+
+## Model 2 \label{sec:model2}
+
+```{stan, echo=TRUE, eval=FALSE, output.var="ex", code=readLines('4pl-processing/4pl-processing.stan')}
 ```
 
 \clearpage
