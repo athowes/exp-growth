@@ -175,3 +175,26 @@ amp %>%
   )
 
 dev.off()
+
+pdf("log-amp.pdf", h = 8, w = 6.25)
+
+amp %>%
+  ggplot(aes(x = Cycle, y = log(`Rn`), col = condition)) +
+  geom_line(size = 1) +
+  geom_vline(
+    data = select(amp, row, column, Ct), aes(xintercept = Ct),
+    col = "grey40", linetype = "dashed", alpha = 0.8
+  ) +
+  geom_hline(
+    data = select(amp, row, column, `Ct Threshold`), aes(yintercept = `Ct Threshold`),
+    col = "grey40", linetype = "dashed", alpha = 0.8
+  ) +
+  facet_grid(row ~ column) +
+  theme_minimal() +
+  scale_color_viridis_c() +
+  labs(col = "log10 copies + 1 (per uL)") +
+  theme(
+    legend.position = "bottom"
+  )
+
+dev.off()
