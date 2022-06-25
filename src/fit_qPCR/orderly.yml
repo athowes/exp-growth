@@ -23,12 +23,16 @@ artefacts:
         - 4pl-processing/posterior-stan.pdf
 
 resources:
-  - analysis.R
+  - 4pl/script.R
   - 4pl/4pl.stan
+  - 4pl-processing/script.R
   - 4pl-processing/4pl-processing.stan
-  - 5pl/5pl.stan
+  - 5pl
+  - branching-hmm
 
 packages:
   - dplyr
   - ggplot2
   - rstan
+  - stringr
+  - tidyr
