@@ -1,4 +1,7 @@
 #' Following https://r-nimble.org/html_manual/cha-lightning-intro.html
+#' Other resources which may be useful:
+#' * https://r-nimble.org/cheatsheets/NimbleCheatSheet.pdf
+#' * https://groups.google.com/g/nimble-users
 
 library(nimble)
 library(tidyverse)
@@ -65,6 +68,8 @@ Cpump <- compileNimble(pump)
 
 Cpump$theta
 
+#' N.B. variables included in "monitors" have their posterior sampples recorded
+#' The default variables to be monitored are all top-level stochastic nodes
 mcmc_out <- nimbleMCMC(
   code = pumpCode,
   constants = pumpConsts,

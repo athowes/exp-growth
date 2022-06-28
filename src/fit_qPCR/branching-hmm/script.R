@@ -1,5 +1,10 @@
 #' Model code based on suggestion by Perry de Valpine
 library(nimble)
+library(tidyverse)
+library(posterior)
+
+#' Colour-blind friendly colours
+cbpalette <- c("#56B4E9", "#009E73", "#E69F00", "#F0E442", "#0072B2", "#D55E00", "#CC79A7", "#999999")
 
 branching_hmm <- nimbleCode({
   N_cont ~ dunif(0, 1000)
@@ -9,6 +14,7 @@ branching_hmm <- nimbleCode({
   sigma_f ~ T(dnorm(0, sd = 1), 0, Inf)
   alpha ~ dunif(0, 100)
   n[1] ~ dbinom(prob = r, size = N)
+  f[1] ~ dnorm(alpha * n[1], sd = sigma_f)
   for(i in 2:C) {
     n_new[i] ~ dbinom(prob = E, size = n[i - 1])
     n[i] <- n[i - 1] + n_new[i]
@@ -76,3 +82,64 @@ plot(sim_model$n)
 plot(log(sim_model$n))
 plot(sim_model$f)
 plot(log(sim_model$f))
+
+f_data <- sim_model$f
+
+inf_model <- nimbleModel(
+  code = branching_hmm,
+  constants = list(C = 20),
+  data = list(f = f_data)
+)
+
+compiled_inf_model <- compileNimble(inf_model)
+
+mcmc <- nimbleMCMC(
+  code = compiled_inf_model,
+  constants = list(C = 20),
+  data = list(f = f_data),
+  nchains = 2,
+  niter = 1000,
+  summary = TRUE,
+  WAIC = TRUE,
+  monitor = c("n")
+)
+
+#' Adapted function from Theo to put all the samples into an object that posterior can work with
+#' Not going to use posterior for now, but could be useful in the future
+nimble_separate <- function(nimble_output) {
+  samples1 <- lapply(nimble_output$samples, as.data.frame) %>%
+    bind_rows() %>%
+    posterior::as_draws_array()
+
+  samples2 <- lapply(nimble_output$samples2, as.data.frame) %>%
+    bind_rows() %>%
+    posterior::as_draws_array()
+
+  return(lst(samples = samples, samples2 = samples2))
+}
+
+mcmc_summary <- mcmc$summary %>%
+  as.data.frame() %>%
+  tibble::rownames_to_column("variable") %>%
+  tibble::rownames_to_column("id") %>%
+  mutate(
+    variable = stringr::word(variable, sep = "\\["),
+    id = as.numeric(id)
+  )
+
+pdf("n-posterior.pdf", h = 5, w = 6.25)
+
+ggplot(mcmc_summary, aes(x = id, y = all.chains.Mean, ymin = all.chains.95.CI_low, ymax = all.chains.95.CI_upp)) +
+  geom_line(col = cbpalette[3], size = 1) +
+  geom_ribbon(fill = cbpalette[3], alpha = 0.5) +
+  labs(x = "Cycle number", y = "DNA Count") +
+  theme_minimal()
+
+#' N.B. you can't just do log(ci) to get the CI of log(n)
+ggplot(mcmc_summary, aes(x = id, y = log(all.chains.Mean), ymin = log(all.chains.95.CI_low), ymax = log(all.chains.95.CI_upp))) +
+  geom_line(col = cbpalette[3], size = 1) +
+  geom_ribbon(fill = cbpalette[3], alpha = 0.5) +
+  labs(x = "Cycle number", y = "log(DNA Count)") +
+  theme_minimal()
+
+dev.off()
