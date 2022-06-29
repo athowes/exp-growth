@@ -1,0 +1,10 @@
+script: script.R
+
+packages:
+  - dplyr
+  - readxl
+  - ggplot2
+  - phyloseq
+
+resources:
+  phyloseq.R
