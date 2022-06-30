@@ -8,3 +8,5 @@ packages:
 
 resources:
   phyloseq.R
+  metacal.R
+  fido.R
