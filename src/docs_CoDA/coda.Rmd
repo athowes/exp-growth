@@ -8,7 +8,10 @@ date: '2022-06-15'
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
-* https://www.ncbi.nlm.nih.gov/pmc/articles/PMC6459172/pdf/gi-2019-17-1-e6.pdf
+## Statistical analysis of metagenomics data
+
+Link: https://www.ncbi.nlm.nih.gov/pmc/articles/PMC6459172/pdf/gi-2019-17-1-e6.pdf
+
 * Compositional data is of the form $x = (x_1, \ldots, x_k)$ such that $x_i > 0$ and $\sum_i x_i = T$
 * The total $T$ is defined not to be of importance
 * Equivalence to some member of the unit simplex $\mathcal{S} = \{x = (x_1, \ldots, x_k); \quad x_i > 0; \quad \sum_i x_i = 1\}$
@@ -21,9 +24,60 @@ knitr::opts_chunk$set(echo = TRUE)
 * Additive log-transformation $\text{alr}(x) = (\log(x_i / x_k))_{i < k}$
 * Centered log-transformation $\text{clr}(x) = (\log(x_i / g(x)))_i$ where $g(x) = (\prod_i x_i)^{1 / k}$ is the geometric mean
 * Isometric log-transformation (not described)
-
 * Microbiome abundance table is a matrix $X$ with $n$ rows (samples) and $k$ columns (taxa) where each entry $x_ij$ provides the number of reads corresponding to taxon $j$ in sample $i$
 * Other elements which could be available include the sample data, the taxonomy table, and the phylogenetic tree
-
 * Alpha diversity: within sample diversity
 * Richness $R_\text{obs}$ gives the number of species
+
+## Visualizing the Multinomial in the Simplex
+
+Link: http://www.statsathome.com/2017/09/14/visualizing-the-multinomial-in-the-simplex/
+
+* The multinomial is a discretisation of the simplex
+* The true value is $(.37, .37, .3)$ but there is no way to estimate that when the sample size is $n = 10$
+
+```{r}
+library(tidyverse)
+library(driver)
+library(combinat)
+library(ggtern)
+
+plot_ternary_multinomial_density <- function(n, prob){
+  sx <- t(xsimplex(p = 3, n = n))
+  dx <- apply(sx, 1, function(x) dmultinom(x, size = n, prob = prob))
+  sx <- cbind(as.data.frame(miniclo(sx)), dx)
+  colnames(sx) <- c("v1", "v2", "v3", "d")
+  
+  s <- ggtern(sx, aes(x = v1, y = v2, z = v3)) +
+    geom_point(alpha = 0.4, aes(size = d/max(d))) +
+    theme_bw() +
+    guides(size = FALSE) +
+    scale_size(range = c(.1, 2))
+  s
+}
+```
+
+```{r}
+prob <- miniclo(c(.37, .37, .3))
+d <- setNames(as.data.frame(prob), c("v1", "v2", "v3"))
+plot_ternary_multinomial_density(10, prob) +
+  geom_point(data = d, color = "red", size = 2, fill = "red")
+```
+* As $n$ gets larger it's easier to estimate $p$
+
+```{r}
+d <- setNames(as.data.frame(prob), c("v1", "v2", "v3"))
+plot_ternary_multinomial_density(100, prob) +
+  geom_point(data = d, color = "red", size = 2, fill = "red")
+```
+* As $p$ gets smaller, it's harder to estimate
+
+```{r}
+prob <- miniclo(c(.9, .091, .005))
+p1 <- plot_ternary_multinomial_density(100, prob) +
+  geom_point(data=setNames(as.data.frame(prob), c("v1", "v2", "v3")), color = "red", size = 2, fill="red")
+
+p2 <- p1 + theme_zoom_L(0.2)
+
+grid.arrange(p1, p2, ncol=2)
+```
