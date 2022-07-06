@@ -20,67 +20,74 @@ result_extracts <- lapply(files, function(file) {
   }
 })
 
-df <- bind_rows(result_extracts)
+df <- bind_rows(result_extracts) %>%
+  janitor::clean_names()
 
 df <- df %>%
   #' Split well position into the row and column
-  tidyr::separate(`Well Position`, into = c("row", "column"), sep = 1) %>%
+  tidyr::separate(well_position, into = c("row", "column"), sep = 1) %>%
   #' Split sample name into barcode and condition
-  tidyr::separate(`Sample Name`, into = c("barcode", "condition_id"), sep = "_", remove = FALSE) %>%
+  tidyr::separate(sample_name, into = c("barcode", "condition_id"), sep = "_", remove = FALSE) %>%
   mutate(
     row = as.factor(row),
     column = as.numeric(column),
     condition = as.numeric(stringr::str_extract(condition_id, "\\d+")),
-    Ct = ifelse(CT == "Undetermined", NA, as.numeric(CT))
+    ct = ifelse(ct == "Undetermined", NA, as.numeric(ct))
   ) %>%
   #' Remove columns which are just NA
   select(where(~ any(!is.na(.x)))) %>%
   #' Replace T/F coding with TRUE/FALSE
-  mutate(across(CQCONF:OUTLIERRG, ~ as.logical(ifelse(.x == "T", TRUE, FALSE))))
+  mutate(across(cqconf:outlierrg, ~ as.logical(ifelse(.x == "T", TRUE, FALSE))))
 
-#' * `Well` The number of the well
+#' * `well` The number of the well
 #' * `row` The row that the well is in (A-H)
 #' * `column` The column that the well is in (1-9)
-#' * `Omit` Should the X be omitted?
-#' * `Sample Name`: Format is Q[num1]_D[num2] where
+#' * `mit` Should the X be omitted?
+#' * `sample_name`: Format is Q[num1]_D[num2] where
 #' [num1] is the tracer / pair identifier
 #' [num2] is the experimental condition
 #' * `barcode`: the tracer / pair identifier Q[num1]
 #' * `condition_id`: the experimental condition D[num2]
 #' * `condition`: the experimental condition [num2]
 #' Note: NTC refers to "No Template Control"
-#' * `Target Name`: These are mostly identical to Sample Name
-#' * `Task`: All "UNKNOWN" here (?)
-#' * `Reporter`: The type of reporter dye
-#' * `Quencher`: The type of quencher
+#' * `target_name`: These are mostly identical to Sample Name
+#' * `task`: All "UNKNOWN" here (?)
+#' * `reporter`: The type of reporter dye
+#' * `quencher`: The type of quencher
 #' Note: for reporter and quencher, see:
 #' https://www.ebi.ac.uk/training/online/courses/functional-genomics-ii-common-technologies-and-data-analysis-methods/real-time-pcr/
-#' * `Ct`: PCR cycle number at which the reaction curve intersects the threshold (also called Cq)
-#' * `Ct Mean`: Mean(Ct) over experiments with the same condition
-#' * `Ct SD`: SD(Ct) over experiments with the same condition
-#' * `Automatic Ct Threshold`: Is the (automatic) Ct Threshold used?
-#' * `Ct Threshold`: The threshold (determined automatically?)
-#' * `Automatic Baseline` Is the (automatic) baseline used?
-#' * `Baseline Start`: (?)
-#' * `Baseline End`: (?) Is diff(baseline) related to Ct?
-#' * `Amp Status`: Whether amplification occurred
-#' * `Cq Conf`: ?
-#' * `Target Color`: ?
-#' * `CQCONF`: ?
-#' * `THOLDFAIL`: ?
-#' * `EXPFAIL`: ?
-#' * `HIGHSD`: ?
-#' * `SPIKE`: ?
-#' * `DRNMIN`: ?
-#' * `NOISE`: ?
-#' * `OUTLI`: ?
+#' * `ct`: PCR cycle number at which the reaction curve intersects the threshold (also called Cq)
+#' * `ct_mean`: Mean(Ct) over experiments with the same condition
+#' * `ct_sd`: SD(Ct) over experiments with the same condition
+#' * `automatic_ct_threshold`: Is the (automatic) Ct Threshold used?
+#' * `ct_threshold`: The threshold (determined automatically)
+#' * `automatic_baseline` Is the (automatic) baseline used?
+#' * `baseline_start`: (?)
+#' * `baseline_end`: (?) Is diff(baseline) related to Ct?
+#' * `amp_status`: Whether amplification occurred
+#' * `cq_conf`: ?
+#' * `target_color`: ?
+#' * `cqconf`: ?
+#' * `tholdfail`: ?
+#' * `expfail`: ?
+#' * `highsd`: ?
+#' * `spike`: ?
+#' * `drnmin`: ?
+#' * `noise`: ?
+#' * `outlierrg`: ?
+#' * `assay`: ?
+#' * `prfdrop`: ?
+#' * `badrox`: ?
+#' * `prflow`: ?
+#' * `ctfail`: ?
+#' * `noamp`: ?
 
 pdf("assay.pdf", h = 5, w = 6.25)
 
 df %>%
   split(.$assay) %>%
   lapply(function(x) {
-    ggplot(x, aes(x = column, y = forcats::fct_rev(row), label = `Sample Name`, fill = condition)) +
+    ggplot(x, aes(x = column, y = forcats::fct_rev(row), label = sample_name, fill = condition)) +
       geom_tile(alpha = 0.8) +
       geom_text(size = 2) +
       scale_x_continuous(breaks = 1:9) +
@@ -100,27 +107,27 @@ df %>%
   filter(!(barcode %in% c("Blank", "NTC"))) %>%
   split(.$barcode) %>%
   lapply(function(x) {
-    fit <- lm(Ct ~ condition, data = x)
-    coeff <- summary(fit)$coefficients %>% as.data.frame()
-    intercept <- coeff$Estimate[1]
-    slope <- coeff$Estimate[2]
+    fit <- lm(ct ~ condition, data = x)
+    coef <- broom::tidy(fit)
+    intercept <- coef$estimate[1]
+    slope <- coef$estimate[2]
     E <- -1 + 10^(-1 / slope)
 
-    ggplot(x, aes(x = condition, y = Ct)) +
+    ggplot(x, aes(x = condition, y = ct)) +
       geom_point(alpha = 0.5) +
       geom_abline(intercept = intercept, slope = slope, col = cbpalette[3]) +
       annotate(
-        geom = "text", x = max(x$condition) - 2.5, y = max(x$Ct) - 1,
+        geom = "text", x = max(x$condition) - 2.5, y = max(x$ct) - 1,
         label = paste0("Equation: y = ", round(slope, 2), "x + ", round(intercept, 2)),
         hjust = 0, vjust = 1, size = 4
       ) +
       annotate(
-        geom = "text", x = max(x$condition) - 2.5, y = max(x$Ct) - 2,
+        geom = "text", x = max(x$condition) - 2.5, y = max(x$ct) - 2,
         label = paste0("R^2 = ", round(summary(fit)$r.squared, 3)),
         hjust = 0, vjust = 1, size = 4
       ) +
       annotate(
-        geom = "text", x = max(x$condition) - 2.5, y = max(x$Ct) - 3,
+        geom = "text", x = max(x$condition) - 2.5, y = max(x$ct) - 3,
         label = paste0("Efficiency = ", 100 * round(E, 3), "%"),
         hjust = 0, vjust = 1, size = 4
       ) +
@@ -135,66 +142,130 @@ dev.off()
 
 #' Moving to analysis of the amplification curves
 #' Question: where is the threshold Rn value?
-file <- files[1]
+amp_extracts <- lapply(files, function(file) {
+  amp <- readxl::read_excel(
+    paste0("data/", file),
+    sheet = "Amplification Data",
+    skip = 42
+  )
 
-amp <- readxl::read_excel(
-  paste0("data/", file),
-  sheet = "Amplification Data",
-  skip = 42
-)
+  #' Sometimes the files are empty
+  if(nrow(amp) == 0) {
+    return(NULL)
+  } else {
+    return(mutate(amp, assay = paste(file)))
+  }
+})
+
+amp <- bind_rows(amp_extracts) %>%
+  janitor::clean_names()
 
 amp <- amp %>%
-  select(Well, Cycle, Rn, "Delta Rn") %>%
+  select(well, cycle, rn, delta_rn, assay) %>%
   left_join(
     df %>%
-      filter(assay == file) %>%
-      select(Well, row, column, barcode, condition, Ct, `Ct Threshold`),
-    by = "Well"
+      select(well, row, column, barcode, condition, ct, ct_threshold, assay),
+    by = c("well", "assay")
   ) %>%
   filter(!is.na(row), !is.na(column), column > 2)
 
 pdf("amp.pdf", h = 8, w = 6.25)
 
 amp %>%
-  ggplot(aes(x = Cycle, y = `Delta Rn`, col = condition)) +
-  geom_line(size = 1) +
-  geom_vline(
-    data = select(amp, row, column, Ct), aes(xintercept = Ct),
-    col = "grey40", linetype = "dashed", alpha = 0.8
-  ) +
-  geom_hline(
-    data = select(amp, row, column, `Ct Threshold`), aes(yintercept = `Ct Threshold`),
-    col = "grey40", linetype = "dashed", alpha = 0.8
-  ) +
-  facet_grid(row ~ column) +
-  theme_minimal() +
-  scale_color_viridis_c() +
-  labs(col = "log10 copies + 1 (per uL)") +
-  theme(
-    legend.position = "bottom"
-  )
+  split(.$assay) %>%
+  lapply(function(x) {
+    ggplot(x, aes(x = cycle, y = delta_rn, col = condition)) +
+    geom_line(size = 1) +
+    geom_vline(
+      data = select(x, row, column, ct), aes(xintercept = ct),
+      col = "grey40", linetype = "dashed", alpha = 0.8
+    ) +
+    geom_hline(
+      data = select(x, row, column, ct_threshold), aes(yintercept = ct_threshold),
+      col = "grey40", linetype = "dashed", alpha = 0.8
+    ) +
+    facet_grid(row ~ column) +
+    theme_minimal() +
+    scale_color_viridis_c() +
+    labs(col = "log10 copies + 1 (per uL)") +
+    theme(
+      legend.position = "bottom"
+    )
+  })
 
 dev.off()
 
 pdf("log-amp.pdf", h = 8, w = 6.25)
 
 amp %>%
-  ggplot(aes(x = Cycle, y = log(`Rn`), col = condition)) +
-  geom_line(size = 1) +
-  geom_vline(
-    data = select(amp, row, column, Ct), aes(xintercept = Ct),
-    col = "grey40", linetype = "dashed", alpha = 0.8
-  ) +
-  geom_hline(
-    data = select(amp, row, column, `Ct Threshold`), aes(yintercept = `Ct Threshold`),
-    col = "grey40", linetype = "dashed", alpha = 0.8
-  ) +
-  facet_grid(row ~ column) +
-  theme_minimal() +
-  scale_color_viridis_c() +
-  labs(col = "log10 copies + 1 (per uL)") +
-  theme(
-    legend.position = "bottom"
+  split(.$assay) %>%
+  lapply(function(x) {
+    ggplot(x, aes(x = cycle, y = log(rn), col = condition)) +
+      geom_line(size = 1) +
+      geom_vline(
+        data = select(x, row, column, ct), aes(xintercept = ct),
+        col = "grey40", linetype = "dashed", alpha = 0.8
+      ) +
+      facet_grid(row ~ column) +
+      theme_minimal() +
+      scale_color_viridis_c() +
+      labs(col = "log10 copies + 1 (per uL)") +
+      theme(
+        legend.position = "bottom"
+      )
+  })
+
+dev.off()
+
+#' Trying to determine the difference between rn and delta_rn
+amp <- amp %>%
+  mutate(rn_diff = rn - delta_rn)
+
+pdf("rn-diff.pdf", h = 5, w = 6.25)
+
+amp %>%
+  split(.$assay) %>%
+  lapply(function(x) {
+    ggplot(x, aes(x = cycle, y = rn_diff)) +
+    geom_line() +
+    facet_grid(row ~ column) +
+    theme_minimal()
+  })
+
+dev.off()
+
+baselines <- df %>%
+  filter(
+    well == 3,
+    assay == "2022-05-09_AG_barcodes006_008.xls"
+  ) %>%
+  select(baseline_start, baseline_end)
+
+rn_subset <- amp %>%
+  filter(
+    well == 3,
+    assay == "2022-05-09_AG_barcodes006_008.xls",
+    cycle %in% baselines$baseline_start:baselines$baseline_end
   )
+
+rn_fit <- lm(rn ~ 1 + cycle, data = rn_subset)
+rn_coef <- broom::tidy(rn_fit)
+
+pdf("rn-diff-test.pdf", h = 5, w = 6.25)
+
+amp %>%
+  filter(
+    well == 3,
+    assay == "2022-05-09_AG_barcodes006_008.xls"
+  ) %>%
+  ggplot(aes(x = cycle, y = rn_diff)) +
+    geom_line() +
+    geom_abline(
+      intercept = rn_coef$estimate[1],
+      slope = rn_coef$estimate[2],
+      col = "red",
+      linetype = "dashed"
+    ) +
+  theme_minimal()
 
 dev.off()

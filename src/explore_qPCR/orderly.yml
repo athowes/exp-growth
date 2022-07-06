@@ -8,6 +8,8 @@ artefacts:
         - ct.pdf
         - amp.pdf
         - log-amp.pdf
+        - rn-diff.pdf
+        - rn-diff-test.pdf
 
 resources:
   data/
