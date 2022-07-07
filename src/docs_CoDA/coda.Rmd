@@ -81,3 +81,35 @@ p2 <- p1 + theme_zoom_L(0.2)
 
 grid.arrange(p1, p2, ncol=2)
 ```
+
+## We can do better than the ALR or Softmax Transform
+
+Link: http://www.statsathome.com/2017/08/09/we-can-do-better-than-the-alr-or-softmax-transform/
+
+* The ALR transform corresponds to an oblique coordinate system in the simplex (i.e. it is not an orthogonal basis)
+
+```{r}
+library(compositions)
+```
+```{r}
+t <- seq(0, 2 * pi, by = 0.1)
+x <- cos(t)
+y <- sin(t)
+circ <- cbind(x, y)
+
+par(mfrow = c(1, 2))
+plot(circ, asp = 1)
+plot(alr(alrInv(circ, 2), 3), asp = 1)
+```
+
+```{r}
+coords <- as.matrix(rbind(
+  cbind(0, seq(-1, 1, by = 0.1)), 
+  cbind(seq(-1, 1, by = 0.1), 0))
+)
+
+par(mfrow=c(1, 2))
+plot(acomp(alrInv(coords, 2))) 
+plot(acomp(alrInv(coords, 3)))
+```
+
