@@ -1,0 +1,13 @@
+script: script.R
+
+artefacts:
+  - data:
+      description: Notebooks about exponential growth detection
+      filenames:
+        - poisson-regression-theory.html
+
+packages:
+  - tidyverse
+
+resources:
+  - poisson-regression-theory.Rmd

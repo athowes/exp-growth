@@ -1,0 +1,147 @@
+---
+title: "Poisson regression theory"
+description: |
+author:
+  - name: Michael R. McLaren
+  - name: Adam Howes
+---
+
+* https://web.stanford.edu/class/archive/stats/stats200/stats200.1172/Lecture27.pdf
+* https://www.utstat.toronto.edu/~brunner/oldclass/2201s11/readings/glmbook.pdf
+
+## Background
+
+The Poisson regression model is of the form
+$$
+y_i \sim \text{Poisson}(\lambda_i), \\
+\log(\lambda_i) = \beta^\top x_i,
+$$
+where $\beta = (\beta_1, \ldots, \beta_p)$. In a frequentist setting, the likelihood is
+$$
+\mathcal{L}(\beta) = \prod_{i = 1}^n \frac{\exp{(-\lambda_i)}\lambda_i^{y_i}}{y_i!} \propto \prod_{i = 1}^n \exp{(-\lambda_i)}\lambda_i^{y_i}
+$$
+
+with corresponding log-likelihood (up to a constant)
+$$
+\ell(\beta) = \sum_{i = 1}^n -\lambda_i + y_i \log(\lambda_i) \\
+= \sum_{i = 1}^n y_i (\beta^\top x_i) -\exp(\beta^\top x_i)
+$$
+The partial derivative of the log likelihood with respect to the $j$th entry of $\beta$ is
+$$
+\frac{\delta \ell(\beta)}{\partial \beta_j} = \sum_{i = 1}^n x_{ij}(y_i - \exp(\beta^\top x_i)),
+$$
+and the second partial derivative is
+$$
+\frac{\delta^2 \ell(\beta)}{\partial \beta_j \partial \beta_k} = \sum_{i = 1}^n - x_{ij} \exp(\beta^\top x_i)) x_{ik}.
+$$
+
+Let $W = W(\beta)$ be the diagonal matrix $\text{diag}(\exp(\beta^\top x_1), \ldots, \exp(\beta^\top x_n))$, and $X_j = (x_{1j}, \ldots, x_{nj})$ be the $j$th column of the covariate matrix $X$.
+Then the second partial derivative may be rewritten as $- X_j^\top W X_k$ such that $\nabla^2 \ell(\beta) = - X^\top W X$ and $\mathcal{I}(\beta) = X^\top W X$.
+
+For large $n$, the maximum likelihood estimator $\hat \beta \sim \mathcal{N}(\beta, (X^\top W X)^{-1})$ such that the standard error of $\beta_j$ is approximately
+$$
+\sqrt{(X^\top \hat W X)^{-1}_{jj}}
+$$
+
+### Time as a covariate
+
+Suppose that we have one covariate, the time $t_i$ at which the measurement was taken, together with an intercept
+$$
+\log(\lambda_i) = \beta^\top x_i = \beta_0 + \beta t_i.
+$$
+Let $\hat \lambda_i = \exp(\hat \beta_0 + \hat \beta t_i)$ be the fitted values, then the matrix $\hat W$ is
+$$
+\hat W = \text{diag}(\hat \lambda_1, \ldots, \hat \lambda_n)
+$$
+and the columns of the covariate matrix are $X_1 = (1, \ldots, 1)$ and $X_2 = (t_1, \ldots, t_n)$.
+The estimated Fisher information matrix is
+$$
+\hat{\mathcal{I}} = 
+\begin{pmatrix}
+\sum_{i = 1}^n \hat \lambda_i & \sum_{i = 1}^n t_i \hat \lambda_i \\
+\sum_{i = 1}^n t_i \hat \lambda_i & \sum_{i = 1}^n t_i^2 \hat \lambda_i
+\end{pmatrix}
+$$
+with inverse
+$$
+\hat{\mathcal{I}}^{-1} =
+\frac{1}{\sum_{i = 1}^n \hat \lambda_i \sum_{i = 1}^n t_i^2 \hat \lambda_i - (\sum_{i = 1}^n t_i \hat \lambda_i)^2} 
+\begin{pmatrix}
+\sum_{i = 1}^n t_i^2 \hat \lambda_i & -\sum_{i = 1}^n t_i \hat \lambda_i \\
+-\sum_{i = 1}^n t_i \hat \lambda_i & \sum_{i = 1}^n \hat \lambda_i
+\end{pmatrix}
+$$
+
+Let's test this with some R code:
+
+```{r}
+library(tidyverse, quietly = TRUE)
+
+n <- 20
+t <- 1:n
+beta <- 0.2
+beta0 <- 0
+lambda <- exp(beta0 + beta * t)
+y <- rpois(n, lambda)
+
+sim <- tibble(t = 1:n) %>%
+  mutate(
+    beta0 = 0,
+    beta = 0.2,
+    lambda = exp(beta0 + beta * t),
+    y = rpois(n(), lambda)
+  )
+
+ggplot(sim, aes(x = t, y = y)) +
+  geom_point() +
+  geom_line(aes(y = lambda)) +
+  theme_minimal()
+
+fit <- glm(y ~ t, family = poisson, data = sim)
+coef <- broom::tidy(fit, conf.int = TRUE)
+
+lambda_hat <- fit$fitted.values
+
+X <- matrix(c(rep(1, n), t), ncol = 2)
+I_hat <- t(X) %*% diag(lambda_hat) %*% X
+I_hat
+
+I_hat_11 <- sum(lambda_hat)
+I_hat_12 <- sum(t * lambda_hat)
+I_hat_22 <- sum(t^2 * lambda_hat)
+
+I_hat_manual <- matrix(c(I_hat_11, I_hat_12, I_hat_12, I_hat_22), ncol = 2)
+I_hat_manual
+
+I_hat_inv <- solve(I_hat)
+I_hat_inv
+
+I_hat_inv_manual <- 1 / (I_hat_11 * I_hat_22 - (I_hat_12^2)) * matrix(c(I_hat_22, -I_hat_12, -I_hat_12, I_hat_11), ncol = 2)
+I_hat_inv_manual
+
+sqrt(c(I_hat_inv[1, 1], I_hat_inv[2, 2]))
+coef$std.error
+```
+
+This all matches up.
+
+Here is an attempt at a fitted 95% confidence interval (for the mean) based on [this](https://fromthebottomoftheheap.net/2018/12/10/confidence-intervals-for-glms/).
+
+```{r}
+ci <- predict(fit, newdata = data.frame(t = 1:20), se.fit = TRUE, type = "link")
+upr_latent <- ci$fit + 2 * ci$se.fit
+lwr_latent <- ci$fit - 2 * ci$se.fit
+upr <- fit$family$linkinv(upr_latent) #' This is just exp()
+lwr <- fit$family$linkinv(lwr_latent)
+
+sim$upr <- upr
+sim$pred <- fit$family$linkinv(ci$fit)
+sim$lwr <- lwr
+
+ggplot(sim, aes(x = t, y = y, ymax = upr, ymin = lwr)) +
+  geom_point() +
+  geom_ribbon(alpha = 0.5, fill = "red") +
+  geom_line(aes(y = lambda)) +
+  geom_line(aes(y = pred), col = "red") +
+  theme_minimal()
+```
