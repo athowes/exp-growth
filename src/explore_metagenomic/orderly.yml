@@ -7,6 +7,8 @@ packages:
   - phyloseq
 
 resources:
-  phyloseq.R
-  metacal.R
-  fido.R
+  - fido-metacal.R
+  - fido.R
+  - metacal.R
+  - pcrbias.R
+  - phyloseq.R

@@ -100,3 +100,20 @@ names_categories(posterior) <- tax
 
 ppc(posterior) + ggplot2::coord_cartesian(ylim = c(0, 30000))
 ppc_summary(posterior)
+
+posterior_summary <- summary(posterior, pars = "Lambda")$Lambda
+
+#' Ones where the 95% CI doesn't contain zero
+focus <- posterior_summary[sign(posterior_summary$p2.5) == sign(posterior_summary$p97.5), ]
+focus <- unique(focus$coord)
+plot(posterior, par = "Lambda", focus.coord = focus, focus.cov = rownames(X)[2:4])
+
+#' age has non-zero effect, but it is very small
+
+posterior_summary <- filter(posterior_summary, covariate == "diagnosisCD")
+focus <- posterior_summary[sign(posterior_summary$p2.5) == sign(posterior_summary$p97.5),]
+focus <- unique(focus$coord)
+
+tax_table(dat)[taxa_names(dat)[which(names_coords(posterior) %in% focus)]]
+
+plot(posterior, par = "Lambda", focus.coord = focus, focus.cov = rownames(X)[2])
