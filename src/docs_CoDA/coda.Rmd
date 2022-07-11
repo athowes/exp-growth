@@ -1,7 +1,7 @@
 ---
 title: "Compositional Data"
-output: pdf_document
-date: '2022-06-15'
+author:
+- name: Adam Howes
 ---
 
 ```{r setup, include=FALSE}
@@ -32,6 +32,8 @@ Link: https://www.ncbi.nlm.nih.gov/pmc/articles/PMC6459172/pdf/gi-2019-17-1-e6.p
 ## Visualizing the Multinomial in the Simplex
 
 Link: http://www.statsathome.com/2017/09/14/visualizing-the-multinomial-in-the-simplex/
+
+<details>
 
 * The multinomial is a discretisation of the simplex
 * The true value is $(.37, .37, .3)$ but there is no way to estimate that when the sample size is $n = 10$
@@ -81,10 +83,13 @@ p2 <- p1 + theme_zoom_L(0.2)
 
 grid.arrange(p1, p2, ncol=2)
 ```
+</details> 
 
 ## We can do better than the ALR or Softmax Transform
 
 Link: http://www.statsathome.com/2017/08/09/we-can-do-better-than-the-alr-or-softmax-transform/
+
+<details> 
 
 * The ALR transform corresponds to an oblique coordinate system in the simplex (i.e. it is not an orthogonal basis)
 
@@ -113,3 +118,4 @@ plot(acomp(alrInv(coords, 2)))
 plot(acomp(alrInv(coords, 3)))
 ```
 
+</details> 

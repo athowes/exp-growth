@@ -4,10 +4,10 @@ artefacts:
   - data:
       description: Notes on compositional data analysis
       filenames:
-        - coda.pdf
+        - coda.html
 
 resources:
-  data/
+  - coda.Rmd
 
 packages:
   - dplyr
