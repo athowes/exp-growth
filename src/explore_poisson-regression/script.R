@@ -2,3 +2,4 @@
 # setwd("src/explore_poisson-regression/")
 
 rmarkdown::render("poisson-regression-theory.Rmd")
+rmarkdown::render("exponential-detection.Rmd")

@@ -1,0 +1,323 @@
+---
+title: "Estimating exponential growth via sporadic detection"
+author:
+- name: Michael R. McLaren
+- name: Adam Howes
+---
+
+```{r setup}
+knitr::opts_chunk$set(
+  echo = TRUE,
+  cache = TRUE,
+  autodep = TRUE,
+  cache.comments = FALSE
+)
+
+options(scipen=999)
+set.seed(42)
+```
+
+Suppose that there is a local epidemic that is growing exponentially at some rate $r$, so that the total number of cases at time $t$ is
+$$
+n(t) = n(0) e^{rt}.
+$$
+
+Meanwhile, cases are being detected only sporadically, in a manner that we can approximate by a Poisson process with intensity
+$$
+\lambda(t) = c(t) n(t),
+$$
+where $c(t)$ is the detection rate at time $t$.
+For now we will assume that $c(t) = c$ is a constant.
+Another way that $c$ could be interpreted is as the rate of travel through an international airport that is being monitored via a sentinel site, where we assume that all infections are detected.
+
+Let $x(t)$ be the number of detections at time $t$ and $X(t)$ be the cumulative number of detections.
+The number of detections will appear to be growing exponentially only once $\lambda(t) \gg 1$.
+But perhaps we can infer positive exponential growth long before this point using an appropriate statistical analysis that accounts for the sporadic (Poisson) nature of detections.
+
+Note, we might want to reframe this to be discrete (daily) such that
+$$
+n_t = n_0 e^{rt} \\
+\lambda_t = c_t n_t
+$$
+
+# Setup
+
+```{r libraries, message=FALSE}
+library(tidyverse)
+# ggplot helpers
+# library(ggbeeswarm)
+library(cowplot)
+library(patchwork)
+theme_set(theme_minimal())
+# stats helpers
+# library(broom)
+```
+
+# Simulate data
+
+```{r}
+r <- 1e-1
+c <- 1e-4
+
+sim <- tibble(t = seq(1, 200)) %>%
+  mutate(
+    n = exp(r * t),
+    lambda = c * n,
+    x = rpois(n(), lambda),
+    X = cumsum(x)
+  )
+```
+
+Let's see the number of daily detections,
+
+```{r}
+p1 <- sim %>% 
+  filter(t < 125) %>%
+  ggplot(aes(t, x)) +
+  geom_point() +
+  geom_line(aes(y = lambda), color = 'darkred')
+
+p1
+```
+
+If we instead had a much smaller $r$, there would be a longer period where $\lambda \approx 1$.
+
+Let's try to fit the data with Poisson regression.
+
+```{r}
+fit <- glm(x ~ t, family = poisson, data = sim)
+coef(fit)
+```
+
+The estimated intercept `r coef(fit)[["(Intercept)"]]` nearly matches the log of $\lambda(0) = c n(0)$ which is `r log(c * exp(r))`.
+The estimated slope `r coef(fit)[["t"]]` very closely matches the true exponential growth rate `r r`.
+
+Now, let's see how the estimated exponential growth rate (with uncertainty) varies over time as more data comes in.
+Note, I think we can't use `glm()` before there are any cases; a Bayesian method is needed.
+
+```{r}
+first_detection <- sim %>% filter(x > 0) %>% slice(1) %>% pull(t)
+first_detection
+```
+
+The first detection occurs on day `r first_detection`.
+
+```{r warning=FALSE}
+fits <- tibble(today = (first_detection + 1):150) %>%
+  mutate(
+    fit = map(today, ~glm(x ~ t, family = poisson, data = sim[seq(.x),])),
+    fit = map(fit, broom::tidy, conf.int = TRUE)
+  ) %>%
+  unnest(fit)
+
+p2 <- fits %>%
+  filter(term == 't', today < 125) %>%
+  ggplot(aes(today, y = estimate, ymax = conf.high, ymin = conf.low)) +
+  geom_hline(yintercept = c(0, r), color = 'darkred') +
+  geom_pointrange() +
+  expand_limits(x = 1)
+
+p1 / p2
+```
+
+Interestingly, it only takes 2-3 detections before the 95% CI is above 0.
+In reality, the data will be more dispersed than Poisson, and it won't be quite this easy.
+
+Note, the value of $c$ doesn't change the dynamics other than to scale down $\lambda(t)$, so we don't need to test different values of $c$; similarly for $n(0)$.
+
+# A slower growing pandemic
+
+```{r}
+r <- 1e-2
+c <- 1e-4
+
+sim <- tibble(t = seq(1, 2000)) %>%
+  mutate(
+    n = exp(r * t),
+    lambda = c * n,
+    x = rpois(n(), lambda),
+    X = cumsum(x)
+  )
+
+first_detection <- sim %>% filter(x > 0) %>% slice(1) %>% pull(t) %>% print
+```
+
+This time the first detection occurs on day `r first_detection`.
+
+```{r warning=FALSE}
+fits <- tibble(today = seq(first_detection + 1, 1000)) %>%
+  mutate(
+    fit = map(today, ~glm(x ~ t, family = poisson, data = sim[seq(.x),])),
+    fit = map(fit, broom::tidy, conf.int = TRUE)
+  ) %>%
+  unnest(fit)
+```
+
+```{r}
+p1 <- sim %>% 
+  filter(t < 1e3) %>%
+  ggplot(aes(t, x)) +
+  geom_point() +
+  geom_line(aes(y = lambda), color = 'darkred')
+
+p2 <- fits %>%
+  filter(term == 't', today < 1e3) %>%
+  ggplot(aes(today, y = estimate, ymax = conf.high, ymin = conf.low)) +
+  geom_hline(yintercept = c(0, r), color = 'darkred') +
+  geom_pointrange(alpha = 0.5) +
+  expand_limits(x = 1)
+
+p1 / p2 &
+  xlim(c(500, 1e3))
+```
+Sidenote, perhaps it's possible to write a hotstart version of the Poisson GLM which is initialised at the previous value and would make things faster, along the lines of this:
+
+```{r}
+hotstart_poisson_glm <- function(times) {
+  out <- list()
+  start_time <- times[1]
+  remaining_times <- times[-1]
+  fit <- glm(x ~ 1 + t, family = poisson, data = sim[1:start_time, ])
+  out[[start_time]] <- fit
+  for(time in remaining_times) {
+    fit <- glm(x ~ 1 + t, family = poisson, data = sim[1:time, ], start = fit$coefficients)
+    out[[time]] <- fit
+  }
+  return(out)
+}
+```
+
+Let's have a closer look at the time that the first detection starts:
+
+```{r}
+p2 & xlim(c(first_detection - 10, first_detection + 100))
+```
+
+At which days is the confidence interval for the $\beta$ parameter above zero?
+
+```{r}
+fits %>%
+  filter(
+    term == "t",
+    conf.low > 0
+  ) %>%
+  pull(today) %>%
+  unique()
+```
+
+The answer is all of them, after you have detected a single case, having not detected one for hundreds of days, it's not really possible that there just happened to be zeros for that long, so there must be some kind of slope to the rate.
+
+Mike is interested if there are theoretical results which might be useful here.
+
+# SARS-CoV-2 simulation
+
+Let $T_d$ be the doubling time of a hypothetical virus, modelled after SARS-CoV-2.
+Take a doubling time of $T_d = 3$ days; which has been noted for European countries [here](https://royalsocietypublishing.org/doi/10.1098/rstb.2020.0264), though [this article](https://www.ncbi.nlm.nih.gov/pmc/articles/PMC7392464/) reports a faster doubling time for Chinese provinces, including 2.5 for Hubei province.
+To recover the exponential growth rate
+$$
+e^{rT_d} = 2 \implies r = \log2 / T_d
+$$
+
+> Note, that this [RAND article](https://www.rand.org/pubs/research_reports/RRA248-6.html) gives a 10X increase over ~1 week, which is a substantially faster doubling time (as shown by this [figure](https://www.rand.org/content/dam/rand/pubs/research_reports/RRA200/RRA248-6/RR-A248-6-log-wide.svg) in the report where the number of infected travelers was 0.1/day on Jan 22 and 1/day on Jan 29.)
+
+```{r}
+wuhan_tianhe_yearly <- 20000000
+wuhan_tianhe_daily <- wuhan_tianhe_yearly / 365
+wuhan_tianhe_daily
+
+wuhan_population <- 11000000
+prob_airport <- wuhan_tianhe_daily / wuhan_population
+```
+
+The [Wuhan Tianhe International Airport](https://en.wikipedia.org/wiki/Wuhan_Tianhe_International_Airport) serves around `r wuhan_tianhe_yearly` people per year, corresponding to `r round(wuhan_tianhe_daily)` people per day.
+The population of [Wuhan](https://en.wikipedia.org/wiki/Wuhan) is `r wuhan_population`.
+Let's halve the total population served by the airport to get only outgoing flights.
+The percentage of the population in the catchment who use the airport per day $p_a$ is `r 100 * wuhan_tianhe_daily / wuhan_population`\%.
+This corresponds to an average of `r wuhan_tianhe_yearly / wuhan_population` flights per person per year, which could be a bit high, but it is relatively plausible.
+
+```{r}
+prob_detect <- 0.1
+```
+
+Suppose that each person passing through an airport has a probability of being detected $p_d$ of `r prob_detect` (not based on any particular insights).
+
+```{r}
+doubling_time <- 3
+r <- log(2) / doubling_time
+prob_detected <- 0.1
+
+sim <- tibble(t = seq(-30, 50)) %>%
+  mutate(
+    lambda_total = exp(r * t),
+    lambda_travel = prob_airport * lambda_total,
+    lambda_detect = prob_detect * lambda_travel,
+    n_total = rpois(n(), lambda_total),
+    n_travel = rbinom(n(), n_total, prob = prob_airport),
+    n_detect = rbinom(n(), n_travel, prob = prob_detect)
+  )
+```
+
+```{r}
+sim_long <- sim %>%
+  pivot_longer(c(starts_with('n_'), starts_with('lambda_')),
+    names_to = c('var', 'type'),
+    names_sep = '_'
+  ) %>%
+  pivot_wider(names_from = var) %>%
+  print
+```
+
+
+```{r}
+first_case <- function(x) {
+  sim_long %>%
+    filter(
+      type == x,
+      n > 0
+    ) %>%
+    summarise(min_t = min(t)) %>%
+    pull(min_t)
+}
+
+t_first_total <- first_case("total")
+t_first_travel <- first_case("travel")
+t_first_detect <- first_case("detect")
+```
+
+```{r}
+p1 <- sim_long %>% 
+  ggplot(aes(t, n, color = type)) +
+  geom_point() +
+  geom_line(aes(y = lambda)) +
+  geom_vline(aes(xintercept = t_first_total), linetype = "dashed") +
+  geom_vline(aes(xintercept = t_first_travel), linetype = "dashed") +
+  geom_vline(aes(xintercept = t_first_detect), linetype = "dashed") +
+  facet_wrap(~type, scales = "free", ncol = 1) +
+  theme(
+    legend.position = "bottom"
+  )
+
+p1
+```
+
+The lag in days $\ell$ between cases in the population and cases starting to pass through the airport is such that
+$$
+p_ae^{r(t + \ell)} = e^rt \implies \ell = \log(1 / p_a) / r = T_d \log(1 / p_a) / \log(2) = T_d \log(1 / p_d)
+$$
+which evaluates to `r round(log2(1 / prob_airport) * doubling_time, 1)` days.
+Similarly, the lag in days between cases passing through the airport and being detected in the airport is another `r round(log2(1 / prob_detect) * doubling_time, 1)` days.
+
+The first case occurs on day `r t_first_total`, the first case at the airport on day `r t_first_travel` and the first case to be detected on day `r t_first_detect`.
+
+<!-- First time in which positive growth could be detected with simple Poisson regression. -->
+
+<!-- What other scenarios might we consider? -->
+
+<!-- Perhaps it could be good to consider / illustrate a scenario where we do much worse w.r.t. exponential detection than what is suggested here. -->
+<!-- This could be because of noise associated with wastewater shedding dynamics and metagenomic sequencing. -->
+<!-- For example, if the amount of virus shed is random then this would increase the amount of noise. -->
+<!-- If the amount of sequencing reads is Poisson with a small multiplier representing the fact that the virus will be at low concentration and we may be limited by sequencing depth, then it could be much much longer. -->
+<!-- Add one/both of these; perhaps just the limited sequencing depth issue is sufficient. -->
+<!-- The idea here is that now I treat `prob_detected` as the probability of shedding, and then consider that there is a relatively small expected number of reads / shedding event. -->
+<!-- Suppose it something like 1/10 or 1/30 for illustrative purposes. -->
+<!-- Flesh this out into a complete thing that I can share with people. -->

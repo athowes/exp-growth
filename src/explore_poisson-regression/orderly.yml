@@ -5,9 +5,11 @@ artefacts:
       description: Notebooks about exponential growth detection
       filenames:
         - poisson-regression-theory.html
+        - exponential-detection.html
 
 packages:
   - tidyverse
 
 resources:
   - poisson-regression-theory.Rmd
+  - exponential-detection.Rmd
