@@ -3,9 +3,12 @@ title: "Estimating exponential growth via sporadic detection"
 author:
 - name: Michael R. McLaren
 - name: Adam Howes
+output:
+  html_document:
+    code_folding: show
 ---
 
-```{r setup}
+```{r setup, class.source = 'fold-hide'}
 knitr::opts_chunk$set(
   echo = TRUE,
   cache = TRUE,
@@ -13,36 +16,13 @@ knitr::opts_chunk$set(
   cache.comments = FALSE
 )
 
-options(scipen=999)
+options(scipen = 999)
 set.seed(42)
+
+cbpalette <- multi.utils::cbpalette()
 ```
 
-Suppose that there is a local epidemic that is growing exponentially at some rate $r$, so that the total number of cases at time $t$ is
-$$
-n(t) = n(0) e^{rt}.
-$$
-
-Meanwhile, cases are being detected only sporadically, in a manner that we can approximate by a Poisson process with intensity
-$$
-\lambda(t) = c(t) n(t),
-$$
-where $c(t)$ is the detection rate at time $t$.
-For now we will assume that $c(t) = c$ is a constant.
-Another way that $c$ could be interpreted is as the rate of travel through an international airport that is being monitored via a sentinel site, where we assume that all infections are detected.
-
-Let $x(t)$ be the number of detections at time $t$ and $X(t)$ be the cumulative number of detections.
-The number of detections will appear to be growing exponentially only once $\lambda(t) \gg 1$.
-But perhaps we can infer positive exponential growth long before this point using an appropriate statistical analysis that accounts for the sporadic (Poisson) nature of detections.
-
-Note, we might want to reframe this to be discrete (daily) such that
-$$
-n_t = n_0 e^{rt} \\
-\lambda_t = c_t n_t
-$$
-
-# Setup
-
-```{r libraries, message=FALSE}
+```{r libraries, message=FALSE, class.source = 'fold-hide'}
 library(tidyverse)
 # ggplot helpers
 # library(ggbeeswarm)
@@ -53,13 +33,31 @@ theme_set(theme_minimal())
 # library(broom)
 ```
 
-# Simulate data
+Suppose that there is a local epidemic that is growing exponentially at some rate $r$, so that the total number of cases at time $t = 1, \ldots, T$ is
+$$
+n_t = n_0 e^{rt}.
+$$
+
+Meanwhile, cases are detected sporadically, in a manner that we can approximate by a Poisson process with intensity
+$$
+\lambda_t = c_t n_t,
+$$
+where $c_t$ is the detection rate at time $t$.
+For now we will assume that $c_t = c$ is a constant.
+Another way that $c$ could be interpreted is as the rate of travel through an international airport that is being monitored via a sentinel site, where we assume that all infections are detected.
+
+Let $x_t$ be the number of detections at time $t$ and $X_t$ be the cumulative number of detections.
+The number of detections will most clearly appear to be growing exponentially once $\lambda_t \gg 1$.
+However, perhaps we can infer positive exponential growth long before this point using an appropriate statistical analysis that accounts for the sporadic (Poisson) nature of detections.
+
+## First simulated example
 
 ```{r}
-r <- 1e-1
+r <- 0.1
 c <- 1e-4
+T_days <- 125
 
-sim <- tibble(t = seq(1, 200)) %>%
+sim <- tibble(t = seq(1, T_days)) %>%
   mutate(
     n = exp(r * t),
     lambda = c * n,
@@ -68,62 +66,127 @@ sim <- tibble(t = seq(1, 200)) %>%
   )
 ```
 
-Let's see the number of daily detections,
+We start by simulating exponentially increasing data with $r$ set to `r r` and $c$ set to `r c`.
+Note: the value of $c$ doesn't change the dynamics other than to scale down $\lambda_t$, so we don't need to test different values of $c$; similarly for $n_0$.
+The number of daily detections looks as follows:
 
 ```{r}
 p1 <- sim %>% 
-  filter(t < 125) %>%
   ggplot(aes(t, x)) +
-  geom_point() +
-  geom_line(aes(y = lambda), color = 'darkred')
+  geom_point(alpha = 0.5) +
+  geom_line(aes(y = lambda), color = cbpalette[1]) +
+  labs(x = "Day", y = "Number of detected cases")
 
 p1
 ```
 
-If we instead had a much smaller $r$, there would be a longer period where $\lambda \approx 1$.
-
-Let's try to fit the data with Poisson regression.
+Note that the period of time where $\lambda \approx 1$ is very short.
+Though in some sense this is the nature of exponential data, if we instead had a much smaller $r$, this period would be longer.
+It might be helpful to look on the log scale:
 
 ```{r}
-fit <- glm(x ~ t, family = poisson, data = sim)
+p2 <- sim %>% 
+  ggplot(aes(t, log(x))) +
+  geom_point(alpha = 0.5) +
+  geom_line(aes(y = log(lambda)), color = cbpalette[1]) +
+  labs(x = "Day", y = "log(Number of detected cases)")
+
+p2
+```
+
+Taking this view allows us to more clearly see the challenge presented by Poisson observations.
+The logarithm of the latent Poisson intensity is increasing linearly, yet the logarithm of the number of cases only starts to look linear at around the hundredth day. 
+
+Let's fit the data using a Poisson regression model of the form
+$$
+x_t \sim \text{Poisson}(\lambda_t), \\
+\log(\lambda_t) = \beta_0 + \beta t,
+$$
+where $\beta_0$ is the intercept and $\beta$ is the slope of the linear predictor.
+This model is specified in `glm` using the formula `x ~ 1 + t` as follows:
+
+```{r}
+fit <- glm(x ~ 1 + t, family = poisson, data = sim)
 coef(fit)
 ```
 
-The estimated intercept `r coef(fit)[["(Intercept)"]]` nearly matches the log of $\lambda(0) = c n(0)$ which is `r log(c * exp(r))`.
+It isn't difficult to recover the parameters that we generated the data with.
+The estimated intercept `r coef(fit)[["(Intercept)"]]` nearly matches $\log(\lambda(0)) = \log(c n(0))$ which is `r log(c * exp(r))`.
 The estimated slope `r coef(fit)[["t"]]` very closely matches the true exponential growth rate `r r`.
 
-Now, let's see how the estimated exponential growth rate (with uncertainty) varies over time as more data comes in.
-Note, I think we can't use `glm()` before there are any cases; a Bayesian method is needed.
+What about if it were day $s$ and we wanted to know if cases were increasing exponentially?
+In that case, we would only have some subset of the data, $x_1, \ldots, x_s$.
+We will try fitting the same GLM model as before, but just to this subset.
+Note, it isn't possible to use `glm()` before there are any cases.
 
 ```{r}
 first_detection <- sim %>% filter(x > 0) %>% slice(1) %>% pull(t)
-first_detection
 ```
 
-The first detection occurs on day `r first_detection`.
+As such, the first day we will consider is when the first detection happens, which is day `r first_detection`.
 
 ```{r warning=FALSE}
-fits <- tibble(today = (first_detection + 1):150) %>%
+fits <- tibble(today = (first_detection + 1):T_days) %>%
   mutate(
     fit = map(today, ~glm(x ~ t, family = poisson, data = sim[seq(.x),])),
     fit = map(fit, broom::tidy, conf.int = TRUE)
   ) %>%
   unnest(fit)
-
-p2 <- fits %>%
-  filter(term == 't', today < 125) %>%
-  ggplot(aes(today, y = estimate, ymax = conf.high, ymin = conf.low)) +
-  geom_hline(yintercept = c(0, r), color = 'darkred') +
-  geom_pointrange() +
-  expand_limits(x = 1)
-
-p1 / p2
 ```
 
-Interestingly, it only takes 2-3 detections before the 95% CI is above 0.
-In reality, the data will be more dispersed than Poisson, and it won't be quite this easy.
+What does our inference for $\beta_0$ and $\beta$ look like?
+Let's add an indicator for whether the confidence interval is above zero:
 
-Note, the value of $c$ doesn't change the dynamics other than to scale down $\lambda(t)$, so we don't need to test different values of $c$; similarly for $n(0)$.
+```{r}
+fits <- fits %>%
+  mutate(above_zero = as.logical((conf.low > 0) & (conf.high > 0)))
+```
+
+
+```{r}
+p3 <- fits %>%
+  filter(term == 't', today >= first_detection) %>%
+  ggplot(aes(today, y = estimate, ymax = conf.high, ymin = conf.low, col = above_zero)) +
+  geom_hline(yintercept = c(0, r), color = "black", linetype = "dashed") +
+  geom_pointrange(alpha = 0.5) +
+  scale_colour_manual(values = cbpalette[c(2, 3)]) +
+  labs(x = "Day", y = "Estimated slope", col = "CI contains zero?")
+
+p3
+```
+
+Interestingly, in this case, upon the first detection the 95% CI for $\beta$ is already above zero!
+After this date, it then quickly reverts back to including zero until a few weeks later.
+
+```{r}
+fits_long <- fits %>%
+  select(today, term, estimate) %>%
+  pivot_wider(
+    names_from = "term",
+    values_from = "estimate"
+  ) %>%
+  rename(
+    "intercept" = "(Intercept)"
+  )
+
+sim %>% 
+  ggplot(aes(t, log(x))) +
+  geom_point(alpha = 0.5) +
+  geom_line(aes(y = log(lambda)), color = cbpalette[1]) +
+  geom_abline(data = fits_long, aes(intercept = intercept, slope = t, col = today), alpha = 0.2) +
+  scale_colour_viridis_c(option = "C") +
+  labs(x = "Day", y = "log(Number of detected cases)", col = "Model fit to data from\nthis day or before")
+```
+
+On the day that the first case is detected, the linear model (on the log scale) is able to perfectly fit that single data point by putting the intercept as being very negative.
+In particular, the fitted regression model on day `r first_detection + 1` is
+
+```{r}
+fits %>%
+  filter(today == first_detection + 1)
+```
+
+Note that this issue could be fixed by a Bayesian model which doesn't perfectly interpolate the data.
 
 # A slower growing pandemic
 
@@ -158,12 +221,12 @@ p1 <- sim %>%
   filter(t < 1e3) %>%
   ggplot(aes(t, x)) +
   geom_point() +
-  geom_line(aes(y = lambda), color = 'darkred')
+  geom_line(aes(y = lambda), color = cbpalette[1])
 
 p2 <- fits %>%
   filter(term == 't', today < 1e3) %>%
   ggplot(aes(today, y = estimate, ymax = conf.high, ymin = conf.low)) +
-  geom_hline(yintercept = c(0, r), color = 'darkred') +
+  geom_hline(yintercept = c(0, r), color = cbpalette[1]) +
   geom_pointrange(alpha = 0.5) +
   expand_limits(x = 1)
 
