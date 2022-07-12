@@ -20,7 +20,7 @@ sim_summary <- rstan::summary(sim)$summary %>%
   mutate(t = stan_par_index(sim))
 
 f_prior <- sim_summary %>%
-  filter(stingr::str_starts(rowname, "f_sim"))
+  filter(stringr::str_starts(rowname, "f_sim"))
 
 pdf("4pl-processing/prior.pdf", h = 3, w = 6.25)
 
@@ -63,7 +63,7 @@ f_sim_curves <- f_sim[chosen_curves, 1:40] %>%
 
 pdf("4pl-processing/prior-data.pdf", h = 3, w = 6.25)
 
-plot_prior_data <- plot_prior +
+plot_prior_data_4pl_processing <- plot_prior +
   geom_line(
     data = f_sim_curves, aes(x = t, y = f, group = sim, col = observed),
     inherit.aes = FALSE, alpha = 0.5
@@ -71,7 +71,7 @@ plot_prior_data <- plot_prior +
   scale_color_manual(values = c("grey80", "black")) +
   labs(col = "Observed?")
 
-plot_prior_data
+plot_prior_data_4pl_processing
 
 dev.off()
 
@@ -89,11 +89,11 @@ fit_summary <- rstan::summary(fit)$summary %>%
   mutate(t = stan_par_index(fit))
 
 f_posterior <- fit_summary %>%
-  filter(stingr::str_starts(rowname, "f_sim"))
+  filter(stringr::str_starts(rowname, "f_sim"))
 
 pdf("4pl-processing/prior-data-posterior.pdf", h = 3, w = 6.25)
 
-plot_prior_data_posterior <- plot_prior_data +
+plot_prior_data_posterior_4pl_processing <- plot_prior_data +
   geom_line(
     data = f_posterior, aes(x = t, y = mean), inherit.aes = FALSE,
     col = cbpalette[3], size = 1
@@ -103,7 +103,7 @@ plot_prior_data_posterior <- plot_prior_data +
     fill = cbpalette[3], alpha = 0.5
   )
 
-plot_prior_data_posterior
+plot_prior_data_posterior_4pl_processing
 
 dev.off()
 

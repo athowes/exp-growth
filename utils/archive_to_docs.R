@@ -18,3 +18,4 @@ archive_to_docs <- function(report) {
 #' Names of the reports to move
 archive_to_docs("explore_poisson-regression")
 archive_to_docs("docs_CoDA")
+archive_to_docs("fit_qPCR")

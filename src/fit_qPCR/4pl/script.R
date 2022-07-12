@@ -75,7 +75,7 @@ f_sim_curves <- f_sim[chosen_curves, 1:40] %>%
 
 pdf("4pl/prior-data.pdf", h = 3, w = 6.25)
 
-plot_prior_data <- plot_prior +
+plot_prior_data_4pl <- plot_prior +
   geom_line(
     data = f_sim_curves, aes(x = t, y = f, group = sim, col = observed),
     inherit.aes = FALSE, alpha = 0.5
@@ -83,7 +83,7 @@ plot_prior_data <- plot_prior +
   scale_color_manual(values = c("grey80", "black")) +
   labs(col = "Observed?")
 
-plot_prior_data
+plot_prior_data_4pl
 
 dev.off()
 
@@ -106,7 +106,7 @@ f_posterior <- fit_summary %>%
 
 pdf("4pl/prior-data-posterior.pdf", h = 3, w = 6.25)
 
-plot_prior_data_posterior <- plot_prior_data +
+plot_prior_data_posterior_4pl <- plot_prior_data +
   geom_line(
     data = f_posterior, aes(x = t, y = mean), inherit.aes = FALSE,
     col = cbpalette[3], size = 1
@@ -116,7 +116,7 @@ plot_prior_data_posterior <- plot_prior_data +
     fill = cbpalette[3], alpha = 0.5
   )
 
-plot_prior_data_posterior
+plot_prior_data_posterior_4pl
 
 dev.off()
 

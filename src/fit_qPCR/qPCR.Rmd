@@ -3,9 +3,6 @@ title: "A generative model for qPCR data"
 author: "Adam Howes"
 bibliography: citations.bib
 output:
-  pdf_document:
-    toc: yes
-    number_sections: yes
   html_document:
     toc: yes
     df_print: paged
@@ -65,7 +62,7 @@ knitr::opts_chunk$set(
 ## The standard curve method
 
 * Let $x$ be $\log_{10}(\text{copies per ml})$
-* Carry out experiments for $x = 
+* Carry out experiments for $x = 10^d$ where $d$ is a sequence of integers
 * $C_q = a + b$
 * Key relationship is that alterations of the number of copies by factors of ten should result in the same additive change in $C_q$
 
@@ -196,16 +193,16 @@ We will build and expand our model step-by-step using probabilistic programming 
 ## Model 1: Logistic curve copy amplification, link to fluorescence
 
 We first start by considering a model including the 4PL logistic copy amplification component linearly linked to florescence data.
-The Stan code for this model is given in Section \ref{sec:model1}.
+The Stan code for this model is given below.
 We follow a Bayesian workflow [@gelman2020bayesian] by specifying a prior, generating data from that prior, then fitting the model to the generated data.
 This may be done using one Stan file by including a parameter `flag_run_estimation`.
 
 ```{r fig.cap="Prior distribution with ten samples from the prior"}
-knitr::include_graphics("4pl/prior-data.pdf")
+plot_prior_data_4pl
 ```
 
 ```{r fig.cap="Prior distribution with ten samples from the prior, and posterior distribution fitted to one sample from the prior."}
-knitr::include_graphics("4pl/prior-data-posterior.pdf")
+plot_prior_data_posterior_4pl
 ```
 
 <!-- TODO: Suppose that we know the threshold at which $C_q$ is measured by intersection with the amplification curve. -->
@@ -214,14 +211,14 @@ knitr::include_graphics("4pl/prior-data-posterior.pdf")
 
 ## Model 2: Logistic curve copy amplification, link to fluoresence, processing with complete curve
 
-The Stan code for this model is given in Section \ref{sec:model2}.
+The Stan code for this model is given below.
 
 ```{r fig.cap="Prior distribution with ten samples from the prior"}
-knitr::include_graphics("4pl-processing/prior-data.pdf")
+plot_prior_data_4pl_processing
 ```
 
 ```{r fig.cap="Prior distribution with ten samples from the prior, and posterior distribution fitted to one sample from the prior."}
-knitr::include_graphics("4pl-processing/prior-data-posterior.pdf")
+plot_prior_data_posterior_4pl_processing
 ```
 
 \clearpage

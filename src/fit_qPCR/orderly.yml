@@ -4,7 +4,7 @@ artefacts:
   - data:
       description: qPCR modelling draft
       filenames:
-        - qPCR.pdf
+        - qPCR.html
   - data:
       description: 4PL model testing
       filenames:
@@ -29,6 +29,8 @@ resources:
   - 4pl-processing/4pl-processing.stan
   - 5pl
   - branching-hmm
+  - qPCR.Rmd
+  - citations.bib
 
 packages:
   - dplyr
