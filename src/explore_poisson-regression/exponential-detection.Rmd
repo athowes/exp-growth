@@ -17,7 +17,6 @@ knitr::opts_chunk$set(
 )
 
 options(scipen = 999)
-set.seed(42)
 
 cbpalette <- multi.utils::cbpalette()
 ```
@@ -56,6 +55,8 @@ However, perhaps we can infer positive exponential growth long before this point
 r <- 0.1
 c <- 1e-4
 T_days <- 125
+
+set.seed(42)
 
 sim <- tibble(t = seq(1, T_days)) %>%
   mutate(
@@ -126,6 +127,8 @@ first_detection <- sim %>% filter(x > 0) %>% slice(1) %>% pull(t)
 As such, the first day we will consider is when the first detection happens, which is day `r first_detection`.
 
 ```{r warning=FALSE}
+set.seed(42)
+
 fits <- tibble(today = (first_detection + 1):T_days) %>%
   mutate(
     fit = map(today, ~glm(x ~ t, family = poisson, data = sim[seq(.x),])),
@@ -216,11 +219,11 @@ first_detection <- sim %>% filter(x > 0) %>% slice(1) %>% pull(t) %>% print
 ```
 
 Under these assumptions, the time the first detection occurs is on day `r first_detection`.
-What about more generally: what is the distribution over time to first detection?
-We are interested in the probability at time $t$ at least one case has been observed $\alpha_t = \mathbb{P}(x_s > 0 \text{ for some } s \leq t)$.
+What about more generally: what is the distribution over time to first detection $\psi$?
+We are interested in the probability at time $t$ at least one case has been observed $F_\psi(t) = \mathbb{P}(\psi \leq t) = \mathbb{P}(x_s > 0 \text{ for some } s \leq t)$.
 Recalling that $x_t \sim \text{Poisson}(\lambda_t)$, this can be calculated via
 $$
-\alpha_t = 1 - \mathbb{P}(x_s = 0 \text{ for all } s \leq t) \\
+\mathbb{P}(x_s > 0 \text{ for some } s \leq t) = 1 - \mathbb{P}(x_s = 0 \text{ for all } s \leq t) \\
 = 1 - \prod_{s \leq t} \mathbb{P}(x_s = 0) \\
 = 1 - \prod_{s \leq t} \frac{{\lambda_t}^0}{0!} e^{-\lambda_s} \\
 = 1 - \prod_{s \leq t} e^{-\lambda_s}, \\
@@ -228,33 +231,33 @@ $$
 $$
 
 ```{r}
-compute_alpha <- function(t, t0, c, n0, r) {
+compute_psi <- function(t, t0, c, n0, r) {
   day <- t0:t
   lambda_t <- c * n0 * exp(r * day)
   1 - exp(-sum(lambda_t))
 }
 
-compute_alpha(1, 1, c = c, n0 = 1, r = r)
+compute_psi(1, 1, c = c, n0 = 1, r = r)
 ```
 
-So, for example, the probability that a case is observed on day one, using this formula, is `r compute_alpha(1, 1, c = c, n0 = 1, r = r)`.
+So, for example, the probability that a case is observed on day one, using this formula, is `r compute_psi(1, 1, c = c, n0 = 1, r = r)`.
 We can plot the probability that at least one case is observed by day as follows
 
 ```{r}
-alpha <- tibble(t = seq(1, 2000)) %>%
+psi <- tibble(t = seq(1, 2000)) %>%
   mutate(
-    cdf = map_dbl(t, ~ compute_alpha(.x, 1, c = c, n0 = 1, r = r)),
+    cdf = map_dbl(t, ~ compute_psi(.x, 1, c = c, n0 = 1, r = r)),
     pdf = c(0, diff(cdf))
   )
 
-alpha_long <- alpha %>%
+psi_long <- psi %>%
   pivot_longer(
     cols = c("pdf", "cdf"),
     names_to = "type",
     values_to = "value"
   )
 
-alpha_long %>%
+psi_long %>%
   mutate(type = toupper(type)) %>%
   ggplot(aes(x = t, y = value)) + 
     geom_line(col = cbpalette[6]) +
@@ -264,6 +267,40 @@ alpha_long %>%
 ```
 
 So, by the looks of things, `r first_detection` is a quite typical draw from the distribution of time to first detection.
+
+Using the fact that $\mathbb{E}(\psi) = \int_{-\infty}^0 F_\psi(t) \text{d} t + \int_0^\infty (1 - F_\psi(t)) \text{d} t$, where $F_\psi(\cdot)$ is the cumulative distribution function of $\psi$, we can compute the expected time to first detection as
+$$
+\mathbb{E}(\psi) = \int_0^\infty (1 - F_\psi(t)) \text{d} t \\
+= \sum_{t = 0}^\infty (1 - F_\psi(t)) \\
+= \sum_{t = 0}^\infty 1 - \left( 1 - \exp\left( {- \sum_{s \leq t} \lambda_s} \right) \right) \\
+= \sum_{t = 0}^\infty \exp\left( {- \sum_{s \leq t} \lambda_s} \right)
+$$
+
+Perhaps there is a smart way to compute this exactly, but it can be approximated by truncating to a finite sum of the first $N$ terms
+$$
+\sum_{t = 0}^{N} \exp\left( {- \sum_{s \leq t} \lambda_s} \right)
+$$
+
+Given that we know the PDF of $\psi$, it should be quite easy to choose an $N$ such that the approximation is accurate.
+Coding this up, we have
+
+```{r}
+#' Implicity N here is length(sim$lambda)
+#' Looking at the CDF or PDF of psi, this should be sufficient
+#' Given that the intensity is increasing exponentially, and the contribution to the expectation should only be linear
+#' there is a good argument that including higher order terms would not change the computation very much
+length(sim$lambda)
+lambda_cum <- cumsum(sim$lambda)
+sum(exp(-lambda_cum))
+```
+
+How do the factors $c$ and $r$ change the expected time to detection?
+Rewriting the expression for $\mathbb{E}(\psi)$ more explicitly
+$$
+\mathbb{E}(\psi) = \sum_{t = 0}^\infty \exp\left( {- \sum_{s \leq t} c \exp \left( -rs \right) } \right) \\
+= \sum_{t = 0}^\infty \prod_{s \leq t} \exp\left({- c \exp \left( -rs \right) } \right) \\
+$$
+(I've not said anything useful about $c$ or $r$ here yet!)
 
 ## Poisson modelling
 
@@ -281,7 +318,6 @@ sim %>%
 ```
 
 Let's filter down to the early stages of the outbreak an plot the detections and confidence intervals for $\beta$.
-
 
 ```{r warning=FALSE}
 fits <- tibble(today = seq(first_detection + 1, 1000)) %>%
@@ -315,8 +351,8 @@ p2 <- fits %>%
 p1 / p2
 ```
 
-This looks like some interesting behaviour.
-After the first few detections, the model thinks that $\beta > 0$, but after a while without any further detections it returns to thinking that $\beta = 0$ is plausible again for a short time, before detections really start to take off.
+For this seed, after the first detection the confidence interval for $\beta$ is always above zero.
+In other instances, the behaviour has been more interesting (e.g. after initial detection $\beta > 0$, but $\beta = 0$ because plasuible again after a while with no detections).
 
 As a sidenote, perhaps it's possible to write a hotstart version of the Poisson GLM which is initialised at the previous value and would make things faster, along the lines of this (but this would be slow in R due to looping I think):
 
@@ -385,6 +421,8 @@ $$
 doubling_time <- 3
 r <- log(2) / doubling_time
 prob_detected <- 0.1
+
+set.seed(42)
 
 sim <- tibble(t = seq(-30, 50)) %>%
   mutate(
