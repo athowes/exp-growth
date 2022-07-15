@@ -302,6 +302,69 @@ $$
 $$
 (I've not said anything useful about $c$ or $r$ here yet!)
 
+To take another approach, let's just plot the different CDF and PDF curves, varying $r$ and $c$:
+
+```{r}
+r_seq <- 10^{seq(-3, -1, by = 0.1)}
+
+psi_r <- expand_grid(t = 1:1000, r = r_seq) %>%
+  group_by(r) %>%
+  mutate(
+    cdf = pmap_dbl(list(t, r), ~ compute_psi(.x, 1, c = c, n0 = 1, r = .y)),
+    pdf = c(0, diff(cdf))
+  )
+
+psi_r_long <- psi_r %>%
+  pivot_longer(
+    cols = c("pdf", "cdf"),
+    names_to = "type",
+    values_to = "value"
+  )
+
+psi_r_long %>%
+  mutate(type = toupper(type)) %>%
+  ggplot(aes(x = t, y = value, col = r, group = r)) + 
+    geom_line() +
+    scale_color_continuous(trans = "log10", type = "viridis") +
+    facet_wrap(~type, scales = "free") +
+    labs(title = "Effect of changing the growth rate parameter on time to detection",
+         subtitle = paste0("Probability of detection is fixed as ", c),
+         x = "Day", y = "P(At least one case detected)", col = "Growth rate, r") +
+    theme_minimal()
+```
+
+```{r}
+c_seq <- 10^{seq(-7, -2, by = 0.25)}
+
+psi_c <- expand_grid(t = 1:1000, c = c_seq) %>%
+  group_by(c) %>%
+  mutate(
+    cdf = pmap_dbl(list(t, c), ~ compute_psi(.x, 1, c = .y, n0 = 1, r = r)),
+    pdf = c(0, diff(cdf))
+  )
+
+psi_c_long <- psi_c %>%
+  pivot_longer(
+    cols = c("pdf", "cdf"),
+    names_to = "type",
+    values_to = "value"
+  )
+
+psi_c_long %>%
+  mutate(type = toupper(type)) %>%
+  ggplot(aes(x = t, y = value, col = c, group = c)) + 
+    geom_line() +
+    scale_color_continuous(trans = "log10", type = "viridis") +
+    facet_wrap(~type, scales = "free") +
+    labs(title = "Effect of changing the probability of detection parameter",
+         subtitle = paste0("Growth rate is fixed as ", r),
+         x = "Day", y = "P(At least one case detected)", col = "Probability of detection, c") +
+    theme_minimal()
+```
+
+So, it looks to me like changing the probability of detection on the $\log(10)$ scale results in linear scaling of the time to detection.
+Whereas, changes to the growth rate, again on the $\log(10)$ scale, result in more substantial coolings of the time to detection.
+
 ## Poisson modelling
 
 Let's fit the same model as before, to see about how quickly exponential growth can be detected in this instance.
