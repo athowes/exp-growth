@@ -106,7 +106,7 @@ f_posterior <- fit_summary %>%
 
 pdf("4pl/prior-data-posterior.pdf", h = 3, w = 6.25)
 
-plot_prior_data_posterior_4pl <- plot_prior_data +
+plot_prior_data_posterior_4pl <- plot_prior_data_4pl +
   geom_line(
     data = f_posterior, aes(x = t, y = mean), inherit.aes = FALSE,
     col = cbpalette[3], size = 1

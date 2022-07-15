@@ -41,10 +41,12 @@ knitr::opts_chunk$set(
 * Quantitative polymerase chain reaction (qPCR) is a technique used to detect and quantify DNA sequence concentration in a sample
 * The target DNA sequence is amplified in cycles
 * $C_q$ is the cycle number at which the amplification curve intersects some threshold line
+* This threshold line is typically determined automatically by the qPCR machine software
 * Many factors impact the absolute value of $C_q$ besides the concentration of the target DNA
 * The amplification curve is determined by measuring fluorescence
 * Rn is a measure of fluorescence, calculated as a ratio of the FAM dye to ROX dye
 * $\Delta$Rn is Rn minus the baseline fluorescence
+* Baseline fluoresence is also calculated automatically by the qPCR machine software
 * Artefacts from the reaction mix or instrument can change the fluoresence measurements
 * Fluorescence emission of any molecule depends on environmental factors (pH, salt concentration)
 
@@ -63,10 +65,12 @@ knitr::opts_chunk$set(
 
 * Let $x$ be $\log_{10}(\text{copies per ml})$
 * Carry out experiments for $x = 10^d$ where $d$ is a sequence of integers
-* $C_q = a + b$
-* Key relationship is that alterations of the number of copies by factors of ten should result in the same additive change in $C_q$
+* Fit a linear regression $C_q = \beta_0 + \beta x$
+* The key robust relationship is that alterations of the number of copies by factors of ten should result in the same additive change in $C_q$
 
 # Statistical model
+
+Let's try to model the amplification curve qPCR data.
 
 <!-- [TODO: Let $i$ index the well position and add indexes for other relevant features (e.g. treatment)] -->
 
@@ -79,10 +83,14 @@ Two possible strategies for analysing this curve are [@ritz2008qpcr]:
 1. only model the exponential component,
 2. model the complete curve.
 
+In some sense 2. is the more satisfying option, though the later stages of the curve, where resources start to be exhausted and growth slows, would seem to be less related to the copies of the virus and more related to the reaction conditions, and so of less interest for quantification.
+
 ### Models for only the exponential component
 
 First, the exponential component must be isolated.
-Then, it can either be modelled deterministically or stochastically.
+A simple method to do this would be to fit an exponential model and logistic model to decreasing subsets of the data, and find the first cycle number for which the exponential model fits better, according to some metric, than the logistic model.
+
+Given the exponential component is isolated, it can either be modelled deterministically or stochastically.
 
 In the deterministic approach
 $$
@@ -98,12 +106,19 @@ In the stochastic approach, we can use a branching process model
 $$
 n_{c + 1} = n_c + \text{Binomial}(n_c, E)
 $$
-where here the efficiency $E$ must be in the range $(0, 1)$ (if $E \in \{0, 1\}$ then the model is deterministic).
+where here the efficiency $E$ must be in the range $(0, 1)$.
+Note that if $E \in \{0, 1\}$ then the model is deterministic.
+We might want to think about extending this model to work for values of $E > 1$.
+I'm unsure what this would correspond to mechanistically -- presumably some copies are being multiplied more than once?
+Might we consider some Poisson model for the amplication instead of binomial?
 
 ### Models for the complete curve
 
 So far, I am only aware of deterministic models for the complete curve.
-Two examples are the four parameter and five parameter logistic models.
+I imagine a mechanistic model might need to include parameters for many experimental conditions, and if possible we would prefer to avoid any thermodynamics.
+Perhaps it could work with some kind of cooling schedule on the efficiency of the reaction such that $E \to 0$, where this trajectory is learnt.
+
+Sticking to deterministic models, two examples are the four parameter and five parameter logistic models.
 
 The four-parameter logistic model (4PL) is of the form
 $$
@@ -129,6 +144,8 @@ $$
 
 ## Extension linking copies to fluorescence
 
+After specification of a model for the number of copies at each cycle number, we now need to link to the observed fluoresence.
+
 We observe $(\text{Rn}_0, \ldots, \text{Rn}_C)$ where $C$ is the total number of PCR cycles run.
 The number of copies $n_c$ may be connected to fluorescence data $\text{Rn}_c$ by some function $g$ such that $\text{Rn}_c \sim g(n_c)$.
 It is likely sufficient to consider that this relationship is linear such that
@@ -141,6 +158,11 @@ $$
 \Delta\text{Rn}_c = \alpha n_c + \epsilon_c 
 $$
 
+In particular, $\alpha_0$ can be estimated by
+
+1. Selecting some initial phase of the reaction, where little amplification has occurred
+2. Fitting a constant, or a linear regression (this is what the QuantStudio 3 and 5 Real-Time PCR System Software does), to this iniital phase
+
 ## Extension to stochastic cycle times
 
 One idea for making the "deterministic" curve fitting methods more stochastic is to introduce stochastic cycle times.
@@ -148,6 +170,8 @@ Suppose that cycles $c = 1, \dots, C$ occur at times $t = t_1, \ldots, t_C$ with
 A simple model for the intervals would be $\kappa_c \sim \mathcal{N}(\mu_\kappa, {\sigma_\kappa}^2)$.
 The interval mean could be fixed to one or have a prior centered at one.
 Cycle times are the cumulative sum of intervals $t_c = \sum_{d < c} \kappa_d$.
+
+If we want to stick to fitting the model in a probabilistic programming language which handles continuous variables, then perhaps this could be useful, but otherwise it seems like there are better options.
 
 ## Extension to processing
 
@@ -159,7 +183,8 @@ Processing is more natural to include with an exponential amplification model be
 
 ### Processing with exponentation component
 
-Suppose that a proportion $r$ of DNA are successfully released during processing from an initial number $N_0$.
+The 4PL and 5PL models do not have an intuitive way to incorperate a processing component, as the initial number of copies is not a (real) parameter of the model.
+As a work around, suppose that a proportion $r$ of DNA are successfully released during processing from an initial number $N_0$.
 Then
 $$
 n_0 \sim \text{Binomial}(N_0, r)
