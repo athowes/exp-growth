@@ -1,0 +1,13 @@
+script: script.R
+
+artefacts:
+  - data:
+      description: Notebooks about pandemic potential pathogens
+      filenames:
+        - ppp-notation.html
+
+packages:
+  - tidyverse
+
+resources:
+  - ppp-notation.Rmd

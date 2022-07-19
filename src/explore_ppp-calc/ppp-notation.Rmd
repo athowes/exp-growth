@@ -1,0 +1,104 @@
+---
+title: "Notation for pandemic potential pathogens"
+author:
+  - Geetha Jeyapragasan
+  - Adam Howes
+output:
+  html_document:
+    df_print: paged
+  pdf_document: default
+---
+
+## Basic set-up
+
+Let $k \in \{\text{nat}, \text{acc}, \text{del}\}$ be the possible types of release event, each with rate of occurance $\lambda_k$ per year such that:
+
+* $\lambda_\text{nat} \sim \pi(\lambda_\text{nat})$ is the rate that the pathogen naturally spills over into humans,
+* $\lambda_\text{acc} \sim \pi(\lambda_\text{nat})$ is the rate that the pathogen accidentally spills over into humans,
+* and $\lambda_\text{del} \sim \pi(\lambda_\text{del})$ is the rate that the pathogen is deliberately released in humans.
+
+We model the release events as being independent, each taking a Poisson distribution, such that the number of releases $r_k$ of each type in a given year is
+$$
+r_k \sim \text{Poisson}(\lambda_k).
+$$
+
+Given a release of type $k$, we suppose that there is probability $p_k$ that a pandemic would occur, such that
+$$
+X_k \sim \text{Binomial}(r_k, p_k),
+$$
+where $X_k$ is the number of pandemics of type $k$ that happen.
+We imagine the harm coming about from any pandemic as being $h \sim \pi(h)$, and the total yearly harm from this pathogen as $H = \sum_k H_k = \sum_k hx_k$.
+The expected yearly harm is
+$$
+\mathbb{E}[H]
+= \sum_k \mathbb{E}[H_k]
+= \mathbb{E}[h] \sum_k \mathbb{E}[X_k],
+$$
+that is, just the expected harm per pandemic, multiplied by the expected number of pandemics.
+In this set-up, because the expected harm from each type of pandemic is assumed to be the same, it is sufficient only to consider the expected number of pandemics.
+
+Let's try simulating one draw from the number of yearly pathogens:
+
+```{r}
+#' You could give these priors and draw them, but I'm just using a fixed value
+lambda_nat <- 0.05
+lambda_acc <- 0.01
+lambda_del <- 0.005
+
+(r_nat <- rpois(1, lambda_nat))
+(r_acc <- rpois(1, lambda_acc))
+(r_del <- rpois(1, lambda_del))
+
+#' You could give these priors and draw them, but I'm just using a fixed value
+p_nat <- 0.05
+p_acc <- 0.1
+p_del <- 0.2
+
+(x_nat <- rbinom(n = 1, size = r_nat, prob = p_nat))
+(x_acc <- rbinom(n = 1, size = r_acc, prob = p_acc))
+(x_del <- rbinom(n = 1, size = r_del, prob = p_del))
+
+#' The total number of pandemics in the year was
+(x_tot <- x_nat + x_acc + x_del)
+```
+
+It's was `r x_tot` -- good news I hope.
+What about the expected number of yearly pandemics under this scenario?
+We can simulate 5000 years and see what the average is:
+
+```{r}
+set.seed(1)
+
+yearly_pathogens <- function(lambda, p) {
+  K <- length(lambda)
+  r <- rpois(K, lambda)
+  x <- rbinom(K, size = r, prob = p)
+  return(x)
+}
+
+lambda_values <- c(lambda_nat, lambda_acc, lambda_del)
+p_values <- c(p_nat, p_acc, p_del)
+
+yearly_pathogens(lambda_values, p_values)
+
+N <- 5000
+x_wide <- replicate(N, yearly_pathogens(lambda = lambda_values, p = p_values))
+colSums(t(x_wide))
+sum(colSums(t(x_wide)))
+```
+
+So, under these settings, there were an average of `r sum(colSums(t(x_wide))) / N` pandemics per year.
+These were comprised of `r colSums(t(x_wide))[1]` natural outbreaks, `r colSums(t(x_wide))[2]` accidental releases and `r colSums(t(x_wide))[3]` deliberate releases in `r N` years.
+
+## Adding pandemic prevention research
+
+Pandemic prediction research primarily has the effect of:
+
+* Decreasing $\lambda_{\text{nat}}$
+* Increasing $\lambda_{\text{acc}}$
+* Increasing $\lambda_{\text{del}}$
+* Reducing the size of $h$
+
+Let $S \in \{0, 1\}$ be the scenario in which pandemic prediction research takes place $S = 1$ or does not $S = 0$.
+We are interested in determining $\mathbb{E}[H \, | \, S = 0]$ and $\mathbb{E}[H \, | \, S = 1]$.
+

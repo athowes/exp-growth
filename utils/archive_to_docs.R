@@ -19,3 +19,4 @@ archive_to_docs <- function(report) {
 archive_to_docs("explore_poisson-regression")
 archive_to_docs("docs_CoDA")
 archive_to_docs("fit_qPCR")
+archive_to_docs("explore_ppp-calc")
