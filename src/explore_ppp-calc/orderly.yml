@@ -4,10 +4,10 @@ artefacts:
   - data:
       description: Notebooks about pandemic potential pathogens
       filenames:
-        - ppp-notation.html
+        - ppp-model.html
 
 packages:
   - tidyverse
 
 resources:
-  - ppp-notation.Rmd
+  - ppp-model.Rmd
