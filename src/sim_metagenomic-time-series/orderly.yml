@@ -1,0 +1,19 @@
+script: script.R
+
+artefacts:
+  - data:
+      description: Notebooks about genomics
+      filenames:
+        - computational-genomics.html
+        - metagenomic-time-series.html
+
+resources:
+  - computational-genomics.Rmd
+  - metagenomic-time-series.Rmd
+
+packages:
+  - dplyr
+  - ggplot2
+  - rstan
+  - stringr
+  - tidyr

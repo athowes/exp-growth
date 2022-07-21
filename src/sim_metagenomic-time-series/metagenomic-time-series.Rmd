@@ -1,0 +1,125 @@
+---
+title: "Simulating metagenomic time series data"
+author:
+  - Adam Howes
+output:
+  html_document:
+    df_print: paged
+---
+
+```{r echo = FALSE}
+knitr::opts_chunk$set(
+  echo = TRUE,
+  warning = FALSE,
+  message = FALSE,
+  dpi = 320,
+  out.width = "95%",
+  fig.align = 'center'
+)
+
+library(tidyverse)
+```
+
+We would like to simulate metagenomic data.
+To begin with, we will use a lot of simplifying assumptions to make things easy.
+
+```{r}
+n_organism <- 100
+n_bp <- 10^3
+k <- 40
+time_window <- 14
+baseline <- 100
+r <- 1
+read_depth <- 10^6
+```
+
+Suppose that there are `r n_organism` organisms in total (and nothing else exists).
+Each organism has a genome that is exactly `r n_bp` base-pairs long.
+Each genome is broken into $k$-mers of length `r k`.
+There are `r n_bp - k` $k$-mers from each organism, obtained by subtracting the $k$-mer length from the genome size.
+Assume that each $k$-mer is unique, and there are no sequencing errors.
+
+We collect data over a period of `r time_window` days $t = 0, 1, \dots$ at a single environmental monitoring site.
+Every species has a baseline concentration in water of `r baseline` copy per $\mu$L^[The units don't matter much.].
+Suppose that one of the species is experiencing exponential growth.
+It starts at the baseline concentration, but over the `r time_window` day window its concentration increases exponentially according to
+$$
+c_t = c_0 \exp(rt)
+$$
+where $r$ is the growth rate which we take to be `r r`.
+
+```{r}
+#' The concentration of the baseline organisms over the time window
+conc_baseline <- rep(baseline, time_window)
+conc_baseline
+
+#' The concentration of the exponentially increasing organism over the time window
+conc_exponential <- baseline * exp(r * 0:13)
+conc_exponential
+```
+
+We will represent the true concentrations of each organism with a matrix `C`, and place the exponentially increasing organism in the first column.
+
+```{r}
+C <- matrix(
+  data = c(conc_exponential, rep(conc_baseline, n_organism - 1)),
+  nrow = time_window,
+  ncol = n_organism
+)
+
+C[1:14, 1:5]
+```
+
+The true concentration of each $k$-mer is that of the corresponding organism.
+We can represent this by copying each column of the matrix `C` `r n_bp` times.
+
+```{r}
+K <- matrix(rep(as.numeric(t(C)), each = n_bp), nrow = time_window, byrow = TRUE)
+```
+The matrix `K` now has `r nrow(K)` rows, one for each day, and `r ncol(K)` columns, one for each $k$-mer (of which there are `r n_bp` times `r n_organism`).
+
+We can calculate proportions, where the total number of $k$-mers is given by the row sums:
+
+```{r}
+K_norm <- t(apply(K, 1, function(x) x / sum(x), simplify = TRUE))
+useful::topleft(K_norm)
+useful::bottomleft(K_norm)
+```
+
+Suppose that the read depth is `r read_depth`.
+We take a multinomial sample with probabilities of sampling each $k$-mer given by `K_norm`.
+
+```{r}
+#' The proportions from day 1
+K_norm_one <- K_norm[1, ]
+sample_one <- rmultinom(1, read_depth, K_norm_one)
+hist(sample_one)
+
+#' Try to do all of the samples with an apply
+sample <- apply(K_norm, 1, function(row) rmultinom(1, read_depth, row))
+
+colnames(sample) <- paste0("day_", 1:ncol(sample))
+rownames(sample) <- paste0(1:nrow(sample))
+
+sample_df <- sample %>%
+  as.data.frame() %>%
+  tibble::rownames_to_column("kmer") %>%
+  pivot_longer(
+    cols = starts_with("day"),
+    names_to = "day",
+    values_to = "count",
+    names_prefix = "day_"
+  ) %>%
+  mutate(
+    kmer = as.numeric(kmer),
+    day = as.numeric(day)
+  )
+
+sample_df %>%
+  filter(kmer %in% 1:40) %>%
+  ggplot(aes(x = day, y = count, col = kmer)) +
+    geom_point() +
+    theme_minimal() +
+    labs(x = "Day", y = "Count", col = "kmer")
+```
+

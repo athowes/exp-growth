@@ -1,0 +1,89 @@
+---
+title: "Computational genomics"
+author: "Adam Howes"
+output: html_document
+---
+
+## Central dogma
+
+* DNA is the genetic code
+* DNA is converted, via transcription, to messenger RNA (mRNA)
+* mRNA is converted to proteins
+* Proteins are the things that do the work
+* Proteins are comprised of amino acids
+* In mRNA, three letters are a codon, and they encode for one amino acid
+* mRNA is read sequentially, one codon at a time
+* There is a step called reverse transcription which is done by viruses
+* mRNA to amino acid code is quite standard
+* DNA has an alphabet ACGT
+* mRNA has ACGU
+* DNA has a direction. Top strand goes left to right, bottom strand goes from right to left. The reverse compliment
+* DNA transcribed to mRNA
+ * $A \to U$
+ * $C \to G$
+ * $G \to C$
+ * $T \to A$
+* Coding strand and template strand: read from the template strand, but matches the coding strand (apart from $T$ being replaced by $U$)
+
+## What does it mean to sequence a genome?
+
+* Human genome is 3.1 billion bp, that is 3.1 Gbp
+* Bacteria genome is 2 million bp, that is 2 Mbp
+* Sequence the genome means to understand the order of $\{A, C, G, T\}$
+* In this course we focus on bacterial genomes because they are smaller
+  * You can analyse the data on a laptop
+  * For the human genome you'd need more compute
+
+## What is genome sequencing
+
+* Bacteria has a circular genome
+* Maybe a few smaller circles called plasmids
+* Vibrio cholera (among others) has two chromosomes in its genome
+  * The difference between a chromosome and a plasmid is that a plasmid can be removed and the cell will still function
+* The genome is all the chromosomes and plasmids (for a particular cell)
+* In genome sequencing we want to understand the whole genetic make-up of a cell
+* Best sequencing technologies allow us to sequence kbp, but most only do hbp (h = "hecto", 10E2)
+* Could go around the circle doing fragments
+* Instead, take random fragments and do it many times
+* Goal is to take fragments and convert them into one piece of DNA
+* What coverage? For each position, how many times do we need to see it to think that we've seen the whole distribution
+* You can use the Poisson distribution, and estimate that you need around 10x coverage to recover the whole thing
+  * Typically aim for 10x - 100x coverage, where the top end is driven by the amount of sequencing you can get off of the machine [TODO: Can I confirm this with a simple simulation?]
+  * For longer reads, you don't need as much coverage
+
+## Steps in genome sequencing
+
+* Steps
+  1. Grow some bacteria
+  2. Extract DNA
+  3. Library prep
+  4. Sequencer
+  5. fastq-format DNA sequences
+* Next
+  1. Assemble fragments into contigs
+  2. Identify open reading frames (ORFs)
+  3. Identify tRNA genes: transfer RNA
+  4. Identify rRNA: ribosomal RNA
+  5. Functionally annotate the genome
+  6. Metabolic modelling
+  
+## Sanger sequencing
+
+* 1970s Fred Sanger (two Noble prize winner for two different discoveries) invented dideoxychain termination
+* Adding a ddNTP would block adding dNTP
+* 1970 - 2002
+* Advantages
+  * Long reads 1kbp
+  * High accuracy
+* Disadvantages
+  * How throughput (394 sequences at once)
+* Sanger sequencing is still in use if you're just interested in a short piece
+* Costs about $3
+
+## 454 sequencing
+
+* 454 pyrosequencing
+* DNA molecule, as you add new base, you release some inorganic phosphate
+* There is an enzyme called luciferase when when it finds phosphate releases some light
+* They use pico titre plates which have a small well 25$\mu$m across
+

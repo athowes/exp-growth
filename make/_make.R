@@ -15,3 +15,6 @@ orderly::orderly_commit(id)
 
 id <- orderly::orderly_run("explore_ppp-calc")
 orderly::orderly_commit(id)
+
+id <- orderly::orderly_run("sim_metagenomic-time-series")
+orderly::orderly_commit(id)
