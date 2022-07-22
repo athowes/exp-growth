@@ -27,6 +27,7 @@ To begin with, we will use a lot of simplifying assumptions to make things easy.
 n_organism <- 100
 n_bp <- 10^3
 k <- 40
+n_kmer <- n_bp - k
 time_window <- 14
 baseline <- 100
 r <- 1
@@ -36,7 +37,7 @@ read_depth <- 10^6
 Suppose that there are `r n_organism` organisms in total (and nothing else exists).
 Each organism has a genome that is exactly `r n_bp` base-pairs long.
 Each genome is broken into $k$-mers of length `r k`.
-There are `r n_bp - k` $k$-mers from each organism, obtained by subtracting the $k$-mer length from the genome size.
+There are `r n_kmer` $k$-mers from each organism, obtained by subtracting the $k$-mer length from the genome size.
 Assume that each $k$-mer is unique, and there are no sequencing errors.
 
 We collect data over a period of `r time_window` days $t = 0, 1, \dots$ at a single environmental monitoring site.
@@ -74,9 +75,9 @@ The true concentration of each $k$-mer is that of the corresponding organism.
 We can represent this by copying each column of the matrix `C` `r n_bp` times.
 
 ```{r}
-K <- matrix(rep(as.numeric(t(C)), each = n_bp), nrow = time_window, byrow = TRUE)
+K <- matrix(rep(as.numeric(t(C)), each = n_kmer), nrow = time_window, byrow = TRUE)
 ```
-The matrix `K` now has `r nrow(K)` rows, one for each day, and `r ncol(K)` columns, one for each $k$-mer (of which there are `r n_bp` times `r n_organism`).
+The matrix `K` now has `r nrow(K)` rows, one for each day, and `r ncol(K)` columns, one for each $k$-mer (of which there are `r n_kmer` times `r n_organism`).
 
 We can calculate proportions, where the total number of $k$-mers is given by the row sums:
 
@@ -98,28 +99,51 @@ hist(sample_one)
 #' Try to do all of the samples with an apply
 sample <- apply(K_norm, 1, function(row) rmultinom(1, read_depth, row))
 
-colnames(sample) <- paste0("day_", 1:ncol(sample))
+colnames(sample) <- paste0("day", 1:ncol(sample))
 rownames(sample) <- paste0(1:nrow(sample))
 
 sample_df <- sample %>%
   as.data.frame() %>%
-  tibble::rownames_to_column("kmer") %>%
+  tibble::rownames_to_column("id") %>%
   pivot_longer(
     cols = starts_with("day"),
     names_to = "day",
     values_to = "count",
-    names_prefix = "day_"
+    names_prefix = "day"
   ) %>%
   mutate(
-    kmer = as.numeric(kmer),
-    day = as.numeric(day)
+    id = as.numeric(id),
+    day = as.numeric(day),
+    kmer = rep(rep(1:n_kmer, each = time_window), times = n_organism),
+    organism = rep(1:n_organism, each = n_kmer * time_window)
   )
-
-sample_df %>%
-  filter(kmer %in% 1:40) %>%
-  ggplot(aes(x = day, y = count, col = kmer)) +
-    geom_point() +
-    theme_minimal() +
-    labs(x = "Day", y = "Count", col = "kmer")
 ```
 
+Just plotting the data from the organism which we have set to be exponentially increasing:
+
+```{r}
+sample_summary <- sample_df %>%
+  filter(organism == 1) %>%
+  group_by(day) %>%
+  summarise(
+    count_upper = quantile(count, 0.95),
+    count_median = median(count),
+    count_lower = quantile(count, 0.05)
+  )
+
+ggplot(sample_summary, aes(x = day, ymin = count_lower, y = count_median, ymax = count_upper)) +
+    geom_ribbon(alpha = 0.1) +
+    geom_point() +
+    geom_point(data = filter(sample_df, organism == 1), aes(x = day, y = count, col = kmer),
+               alpha = 0.01, inherit.aes = FALSE) + 
+    theme_minimal() +
+    labs(x = "Day", y = "Number of reads in sample", col = "kmer")
+```
+
+```{r}
+pickout_day <- 10
+```
+
+With these settings, on day `r pickout_day` the median count of organism 1 is `r filter(sample_summary, day == pickout_day)$count_median`.
+At this stage, the exponential growth curve has started to level off because $k$-mers from organism 1 already represent `r 100 * filter(sample_summary, day == pickout_day)$count_median * n_kmer / read_depth`\% of the total reads.
+This is unrealistic as it would be unlikely, or for the novel pathogens we are considering essentially impossible, for any one organism to saturate the space.
