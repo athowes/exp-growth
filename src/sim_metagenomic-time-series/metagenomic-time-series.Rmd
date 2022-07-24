@@ -150,7 +150,6 @@ This is unrealistic as it would be unlikely, or for the novel pathogens we are c
 
 <!-- hey adam, this looks like a good start to me. Seems ok to start working on the detection side of things. Some ways to make the simulations a bit more realistic/relevant you could experiment with: -->
 <!-- * we expect the exponentially increasing viruses we are catching to have a very small initial relative abundance; so you could start this one with a much lower concentration, and then it won’t saturate over the simulation period -->
-<!-- * we expect there to be noise in the true abundances; e.g. every day, the exponential increase factor for all organisms might have a lognormal distribution; for the baseline orgs, this could have a geometric mean of 1, but for the increasing org/threat the gm mean would be >1 -->
 <!-- * there is additional noise + bias in the seq measurements which I also would model as lognormal but fine to ignore for now -->
 
 ## Adding noise to the true abundances
@@ -209,8 +208,53 @@ baseline_df %>%
     facet_wrap(~variable, ncol = 1, scales = "free") +
     scale_colour_manual(values = cbpalette) +
     theme_minimal() +
-    labs(x = "Day", y = "", col = "Path number")
+    labs(x = "Day", y = "", col = "Path number", title = "Baseline behaviour")
 ```
 
 The key takeaway for me is the even though the noise is IID and Gaussian, when you take the cumulative sum and exponentiate it can lead to large deviations in concentration.
-For example, the maximum concentration value observed was `r max(baseline_df$conc)` -- which is `r max(baseline_df$conc) / baseline` greater than the baseline concentration. 
+For example, the maximum concentration value observed was `r max(baseline_df$conc)` -- which is `r max(baseline_df$conc) / baseline` greater than the baseline concentration.
+
+## Exponential
+
+For the exponential regime, we also suppose a geometric lognormal random walk
+$$
+c^{(e)}_t = c^{(e)}_{t - 1} \times \exp \left( \epsilon^{(e)}_t \right)
+$$
+where $\exp(\epsilon^{(e)}_t) \sim \mathcal{N}(r, \sigma_e^2)$ and the growth rate $r > 0$.
+The expected concentration is $c^{(b)}_{0} \times \exp(rt)$.
+Let's simulate some paths from this distribution as before.
+
+```{r}
+exponential_df <- data.frame(
+  day = rep(1:time_window, times = n_baseline_paths), 
+  epsilon = rnorm(time_window * n_baseline_paths, mean = r),
+  path_number = as.factor(rep(1:n_baseline_paths, each = time_window))
+  ) %>%
+  group_by(path_number) %>%
+  arrange(path_number) %>%
+  mutate(
+    cumsum_epsilon = cumsum(epsilon),
+    conc = baseline * exp(cumsum_epsilon)
+  ) %>%
+  ungroup()
+
+exponential_df %>%
+  pivot_longer(
+    cols = c("epsilon", "cumsum_epsilon", "conc"),
+    names_to = "variable",
+    values_to = "value"
+  ) %>%
+  mutate(
+    variable = recode_factor(variable, 
+      "epislon" = "epsilon", 
+      "cumsum_epsilon" = "cumsum(epsilon)",
+      "conc" = "Concentration")
+  ) %>%
+  ggplot(aes(x = day, y = value, group = path_number, col = path_number)) +
+    geom_line() +
+    facet_wrap(~variable, ncol = 1, scales = "free") +
+    scale_colour_manual(values = cbpalette) +
+    theme_minimal() +
+    labs(x = "Day", y = "", col = "Path number", title = "Exponential behaviour")
+```
+
