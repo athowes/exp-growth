@@ -41,11 +41,11 @@ There are `r n_kmer` $k$-mers from each organism, obtained by subtracting the $k
 Assume that each $k$-mer is unique, and there are no sequencing errors.
 
 We collect data over a period of `r time_window` days $t = 0, 1, \dots$ at a single environmental monitoring site.
-Every species has a baseline concentration in water of `r baseline` copy per $\mu$L^[The units don't matter much.].
+Every species has a baseline concentration $c^{(b)}$ in water of `r baseline` copy per $\mu$L^[The units don't matter much.].
 Suppose that one of the species is experiencing exponential growth.
 It starts at the baseline concentration, but over the `r time_window` day window its concentration increases exponentially according to
 $$
-c_t = c_0 \exp(rt)
+c^{(e)}_t = c^{(e)}_0 \exp(rt)
 $$
 where $r$ is the growth rate which we take to be `r r`.
 
@@ -147,3 +147,70 @@ pickout_day <- 10
 With these settings, on day `r pickout_day` the median count of organism 1 is `r filter(sample_summary, day == pickout_day)$count_median`.
 At this stage, the exponential growth curve has started to level off because $k$-mers from organism 1 already represent `r 100 * filter(sample_summary, day == pickout_day)$count_median * n_kmer / read_depth`\% of the total reads.
 This is unrealistic as it would be unlikely, or for the novel pathogens we are considering essentially impossible, for any one organism to saturate the space.
+
+<!-- hey adam, this looks like a good start to me. Seems ok to start working on the detection side of things. Some ways to make the simulations a bit more realistic/relevant you could experiment with: -->
+<!-- * we expect the exponentially increasing viruses we are catching to have a very small initial relative abundance; so you could start this one with a much lower concentration, and then it won’t saturate over the simulation period -->
+<!-- * we expect there to be noise in the true abundances; e.g. every day, the exponential increase factor for all organisms might have a lognormal distribution; for the baseline orgs, this could have a geometric mean of 1, but for the increasing org/threat the gm mean would be >1 -->
+<!-- * there is additional noise + bias in the seq measurements which I also would model as lognormal but fine to ignore for now -->
+
+## Adding noise to the true abundances
+
+Suppose now that the organisms have abundances which vary stochastically, rather than either be fixed or increasing exponentially deterministically.
+
+## Baseline
+
+For the baseline concentration, we will use a lognormal geometric random walk such that
+$$
+c^{(b)}_t = c^{(b)}_{t - 1} \times \exp \left( \epsilon^{(b)}_t \right)
+$$
+where $\exp(\epsilon^{(b)}_t) \sim \mathcal{N}(0, \sigma_b^2)$.
+Another way to calculate $c^{(b)}_t$ is as
+$$
+c^{(b)}_t = c^{(b)}_{0} \times \exp \left( \sum_{t = 1}^T \epsilon^{(b)}_t \right)
+$$
+Note that the expected cumulative sum of innovations is always zero, such that the expected concentration at any time is that of $c^{(b)}_{0}$
+
+```{r}
+n_baseline_paths <- 8
+```
+
+To show how this behaviour looks, let's simulate `r n_baseline_paths` baseline paths.
+
+```{r}
+baseline_df <- data.frame(
+  day = rep(1:time_window, times = n_baseline_paths), 
+  epsilon = rnorm(time_window * n_baseline_paths),
+  path_number = as.factor(rep(1:n_baseline_paths, each = time_window))
+  ) %>%
+  group_by(path_number) %>%
+  arrange(path_number) %>%
+  mutate(
+    cumsum_epsilon = cumsum(epsilon),
+    conc = baseline * exp(cumsum_epsilon)
+  ) %>%
+  ungroup()
+
+cbpalette <- c("#56B4E9", "#009E73", "#E69F00", "#F0E442", "#0072B2", "#D55E00", "#CC79A7", "#999999")
+
+baseline_df %>%
+  pivot_longer(
+    cols = c("epsilon", "cumsum_epsilon", "conc"),
+    names_to = "variable",
+    values_to = "value"
+  ) %>%
+  mutate(
+    variable = recode_factor(variable, 
+      "epislon" = "epsilon", 
+      "cumsum_epsilon" = "cumsum(epsilon)",
+      "conc" = "Concentration")
+  ) %>%
+  ggplot(aes(x = day, y = value, group = path_number, col = path_number)) +
+    geom_line() +
+    facet_wrap(~variable, ncol = 1, scales = "free") +
+    scale_colour_manual(values = cbpalette) +
+    theme_minimal() +
+    labs(x = "Day", y = "", col = "Path number")
+```
+
+The key takeaway for me is the even though the noise is IID and Gaussian, when you take the cumulative sum and exponentiate it can lead to large deviations in concentration.
+For example, the maximum concentration value observed was `r max(baseline_df$conc)` -- which is `r max(baseline_df$conc) / baseline` greater than the baseline concentration. 
