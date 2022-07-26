@@ -1,10 +1,14 @@
 ---
 title: "Simulating metagenomic time series data"
-author:
-  - Adam Howes
+author: "Adam Howes"
+bibliography: citations.bib
 output:
   html_document:
+    toc: yes
     df_print: paged
+    code_folding: show
+abstract: |
+  In this document we aim to 1) build a modular understanding of the data generating process for metagenomic data at varying levels of complexity 2) simulate metagenomic time series data for a baseline (no threat) regime and an exponential (threat) regime
 ---
 
 ```{r echo = FALSE}
@@ -17,37 +21,46 @@ knitr::opts_chunk$set(
   fig.align = 'center'
 )
 
+cbpalette <- c("#56B4E9", "#009E73", "#E69F00", "#F0E442", "#0072B2", "#D55E00", "#CC79A7", "#999999")
+
 library(tidyverse)
 ```
 
-We would like to simulate metagenomic data.
-To begin with, we will use a lot of simplifying assumptions to make things easy.
+## Introduction via simple version
 
 ```{r}
-n_organism <- 100
-n_bp <- 10^3
+n_organism <- 10
+baseline_indices <- 2:n_organism
+exponential_indices <- 1
+n_bp <- 100
 k <- 40
 n_kmer <- n_bp - k
 time_window <- 14
 baseline <- 100
+exp_initial <- 1
 r <- 1
-read_depth <- 10^6
+read_depth <- 10^4
 ```
 
-Suppose that there are `r n_organism` organisms in total (and nothing else exists).
+Suppose that there are `r n_organism` organisms in total in the sample, and nothing else.
 Each organism has a genome that is exactly `r n_bp` base-pairs long.
 Each genome is broken into $k$-mers of length `r k`.
 There are `r n_kmer` $k$-mers from each organism, obtained by subtracting the $k$-mer length from the genome size.
 Assume that each $k$-mer is unique, and there are no sequencing errors.
-
 We collect data over a period of `r time_window` days $t = 0, 1, \dots$ at a single environmental monitoring site.
-Every species has a baseline concentration $c^{(b)}$ in water of `r baseline` copy per $\mu$L^[The units don't matter much.].
-Suppose that one of the species is experiencing exponential growth.
-It starts at the baseline concentration, but over the `r time_window` day window its concentration increases exponentially according to
+
+### Organism-level baseline and exponential regimes
+
+We consider two regimes 1) baseline and 2) exponential growth.
+In the baseline regime, a species has a concentration $c^{(b)}$ in water of `r baseline` copy per $\mu$L^[The units don't matter much.], independent of the day.
+$$
+c^{(b)}_t = c^{(b)}
+$$
+In the exponential growth regime, a species starts at a concentration $c^{(e)}_0$, and over the `r time_window` day window its concentration increases exponentially according to
 $$
 c^{(e)}_t = c^{(e)}_0 \exp(rt)
 $$
-where $r$ is the growth rate which we take to be `r r`.
+where $r$ is the growth rate which we take to be `r r`, and $c^{(e)}_0$ is the initial exponential concentration which we take to be `r exp_initial` -- lower than the baseline concentration as we assume the exponentially increasing organism to be novel.
 
 ```{r}
 #' The concentration of the baseline organisms over the time window
@@ -55,48 +68,77 @@ conc_baseline <- rep(baseline, time_window)
 conc_baseline
 
 #' The concentration of the exponentially increasing organism over the time window
-conc_exponential <- baseline * exp(r * 0:13)
+conc_exponential <- exp_initial * exp(r * 0:13)
 conc_exponential
 ```
 
-We will represent the true concentrations of each organism with a matrix `C`, and place the exponentially increasing organism in the first column.
+Suppose that organisms `r baseline_indices` follow the baseline behaviour and organism `r exponential_indices` follows the exponential behaviour.
+We will represent the true concentrations of each organism with a matrix `C` as follows:
 
 ```{r}
 C <- matrix(
-  data = c(conc_exponential, rep(conc_baseline, n_organism - 1)),
+  data = NA,
   nrow = time_window,
   ncol = n_organism
 )
 
-C[1:14, 1:5]
+C[, exponential_indices] <- conc_exponential
+C[, baseline_indices] <- conc_baseline
+C
 ```
 
-The true concentration of each $k$-mer is that of the corresponding organism.
-We can represent this by copying each column of the matrix `C` `r n_bp` times.
+### Sampling $k$-mers
+
+We assume that the true concentration of each $k$-mer is that of the corresponding organism.
+This may be represented by copying each column of the matrix `C` `r n_bp` times.
 
 ```{r}
 K <- matrix(rep(as.numeric(t(C)), each = n_kmer), nrow = time_window, byrow = TRUE)
 ```
-The matrix `K` now has `r nrow(K)` rows, one for each day, and `r ncol(K)` columns, one for each $k$-mer (of which there are `r n_kmer` times `r n_organism`).
 
+The matrix `K` now has `r nrow(K)` rows, one for each day, and `r ncol(K)` columns, one for each $k$-mer (of which there are `r n_kmer` times `r n_organism`).
 We can calculate proportions, where the total number of $k$-mers is given by the row sums:
 
 ```{r}
 K_norm <- t(apply(K, 1, function(x) x / sum(x), simplify = TRUE))
-useful::topleft(K_norm)
-useful::bottomleft(K_norm)
+# useful::topleft(K_norm)
+# useful::bottomleft(K_norm)
 ```
 
-Suppose that the read depth is `r read_depth`.
-We take a multinomial sample with probabilities of sampling each $k$-mer given by `K_norm`.
+One way to represent the sequencing process is as a sample from the collection of $k$-mers.
+For example, we could consider a multinomial sample with probabilities of sampling each $k$-mer given by `K_norm` and sample size given by the read depth `r read_depth`.
+
+To demonstrate this, suppose we simulate the sequencing process on day 1.
+The proportions of each $k$-mer are given by `K_norm[1, ]`, and we may sample using `rmultinom`.
+A histogram of the $k$-mer counts at day 1 under each regime, showing that the exponential regime is initialised at low count numbers, is given by:
 
 ```{r}
-#' The proportions from day 1
-K_norm_one <- K_norm[1, ]
-sample_one <- rmultinom(1, read_depth, K_norm_one)
-hist(sample_one)
+sample_one <- rmultinom(1, read_depth, K_norm[1, ])
 
-#' Try to do all of the samples with an apply
+get_regime <- function(organism_index) {
+  if(organism_index %in% baseline_indices) return("baseline")
+  if(organism_index %in% exponential_indices) return("exponential")
+  else return(NA)
+}
+
+#' Testing that this function works as intended
+purrr::map_chr(1:11, get_regime)
+
+data.frame(count = sample_one) %>%
+  mutate(
+    organism = rep(1:n_organism, each = n_kmer),
+    regime = str_to_title(purrr::map_chr(organism, get_regime)),
+  ) %>%
+  ggplot(aes(x = count, group = regime, fill = regime)) +
+    geom_histogram(alpha = 0.8) +
+    labs(x = "k-mer count", y = "Occurances", fill = "Regime", title = "k-mer counts at day 1") +
+    scale_fill_manual(values = cbpalette) +
+    theme_minimal()
+```
+
+Now, we will take multinomial samples from all of the days with a call to `apply`:
+
+```{r}
 sample <- apply(K_norm, 1, function(row) rmultinom(1, read_depth, row))
 
 colnames(sample) <- paste0("day", 1:ncol(sample))
@@ -119,11 +161,15 @@ sample_df <- sample %>%
   )
 ```
 
-Just plotting the data from the organism which we have set to be exponentially increasing:
+The data frame `sample_df` filtered to the first $k$-mer from the first organism is given by:
+
+`r filter(sample_df, kmer == 1, organism == 1)`
+
+Let's plot the data from organism `r exponential_indices` which we have set to be exponentially increasing:
 
 ```{r}
 sample_summary <- sample_df %>%
-  filter(organism == 1) %>%
+  filter(organism %in% exponential_indices) %>%
   group_by(day) %>%
   summarise(
     count_upper = quantile(count, 0.95),
@@ -135,9 +181,9 @@ ggplot(sample_summary, aes(x = day, ymin = count_lower, y = count_median, ymax =
     geom_ribbon(alpha = 0.1) +
     geom_point() +
     geom_point(data = filter(sample_df, organism == 1), aes(x = day, y = count, col = kmer),
-               alpha = 0.01, inherit.aes = FALSE) + 
+               alpha = 0.1, inherit.aes = FALSE) + 
     theme_minimal() +
-    labs(x = "Day", y = "Number of reads in sample", col = "kmer")
+    labs(x = "Day", y = "Number of reads in sample", col = "k-mer")
 ```
 
 ```{r}
@@ -147,14 +193,14 @@ pickout_day <- 10
 With these settings, on day `r pickout_day` the median count of organism 1 is `r filter(sample_summary, day == pickout_day)$count_median`.
 At this stage, the exponential growth curve has started to level off because $k$-mers from organism 1 already represent `r 100 * filter(sample_summary, day == pickout_day)$count_median * n_kmer / read_depth`\% of the total reads.
 This is unrealistic as it would be unlikely, or for the novel pathogens we are considering essentially impossible, for any one organism to saturate the space.
-
-<!-- hey adam, this looks like a good start to me. Seems ok to start working on the detection side of things. Some ways to make the simulations a bit more realistic/relevant you could experiment with: -->
 <!-- * we expect the exponentially increasing viruses we are catching to have a very small initial relative abundance; so you could start this one with a much lower concentration, and then it won’t saturate over the simulation period -->
-<!-- * there is additional noise + bias in the seq measurements which I also would model as lognormal but fine to ignore for now -->
+
+Now, we will start to make this simulation more realistic.
 
 ## Adding noise to the true abundances
 
-Suppose now that the organisms have abundances which vary stochastically, rather than either be fixed or increasing exponentially deterministically.
+In reality, the organism abundances will vary, neither being fixed to a constant or increasing deterministically.
+We will now suppose that the abundances vary stochastically as follows.
 
 ### Baseline
 
@@ -163,11 +209,27 @@ $$
 c^{(b)}_t = c^{(b)}_{t - 1} \times \exp \left( \epsilon^{(b)}_t \right)
 $$
 where $\exp(\epsilon^{(b)}_t) \sim \mathcal{N}(0, \sigma_b^2)$.
-Another way to calculate $c^{(b)}_t$ is as
+Another way to calculate the baseline concentration at time $t$, $c^{(b)}_t$, is as
 $$
-c^{(b)}_t = c^{(b)}_{0} \times \exp \left( \sum_{t = 1}^T \epsilon^{(b)}_t \right)
+c^{(b)}_t = c^{(b)}_{0} \times \exp \left( \sum_{s = 1}^t \epsilon^{(b)}_s \right)
 $$
-Note that the expected cumulative sum of innovations is always zero, such that the expected concentration at any time is that of $c^{(b)}_{0}$
+Note that the expected value of the cumulative sum of innovations is
+$$
+\mathbb{E} \left[ \sum_{s = 1}^t \epsilon^{(b)}_s \right] = \sum_{s = 1}^t \mathbb{E} \left[ \epsilon^{(b)}_s \right] = 0,
+$$
+and the variance is
+$$
+\mathbb{Var} \left[ \sum_{s = 1}^t \epsilon^{(b)}_s \right] = \sum_{s = 1}^t \mathbb{Var} \left[ \epsilon^{(b)}_s \right] = t\sigma_b^2.
+$$
+
+We can use the formula for the moment generating function of a Gaussian random variable $X \sim \mathcal{N}(\mu, \sigma^2)$
+$$
+m_X(u) = \mathbb{E} \left[ e^{uX} \right] = \exp(\mu u + \sigma^2u^2 / 2)
+$$
+to know that the expected concentration at time $T$, say, under this model is
+$$
+\mathbb{E} \left[ c^{(b)}_t \right] = c^{(b)}_{0} \exp(\sigma_b^2/2) > c^{(b)}_{0}.
+$$
 
 ```{r}
 n_baseline_paths <- 8
@@ -188,8 +250,6 @@ baseline_df <- data.frame(
     conc = baseline * exp(cumsum_epsilon)
   ) %>%
   ungroup()
-
-cbpalette <- c("#56B4E9", "#009E73", "#E69F00", "#F0E442", "#0072B2", "#D55E00", "#CC79A7", "#999999")
 
 baseline_df %>%
   pivot_longer(
@@ -258,9 +318,10 @@ exponential_df %>%
     labs(x = "Day", y = "", col = "Path number", title = "Exponential behaviour")
 ```
 
-## Observation models
+## Sequencing observation models
 
-* See: https://arxiv.org/pdf/2001.04343.pdf
+<!-- * there is additional noise + bias in the seq measurements which I also would model as lognormal but fine to ignore for now -->
+See @townes2020review for a nice review of models for count data.
 
 ### Dirichlet-multinomial model
 
@@ -269,16 +330,14 @@ $w \sim \text{Dirichlet}(\alpha_1, \ldots, \alpha_K)$ if
 $$
 p(w; \alpha) = \frac{\Gamma(\sum_k \alpha_k)}{\prod_k \Gamma(\alpha_k)} w_1^{\alpha_1 - 1} w_2^{\alpha_2 - 1} \times \cdots \times w_K^{\alpha_K - 1}
 $$
-```{r}
-dirichlet_draw <- gtools::rdirichlet(n = 1, alpha = K_norm_one)
-```
 
+```{r}
+dirichlet_draw <- gtools::rdirichlet(n = 1, alpha = K_norm[1, ])
+```
 
 ### Poisson-lognormal model
 
-* See: https://pln-team.github.io/PLNmodels/
-
-The multivariate Poisson-lognormal model (MPLN) is set-up for analysis of an abunance table, an $n \times p$ matrix $Y$ where $Y_{ij}$ is the number of individuals from species $j \leq p$ observed at site $i \leq n$.
+The multivariate Poisson-lognormal model (MPLN) [@chiquet2021poisson] is set-up for analysis of an abunance table, an $n \times p$ matrix $Y$ where $Y_{ij}$ is the number of individuals from species $j \leq p$ observed at site $i \leq n$.
 "Species" could refer to an operational taxonomic unit (OTU) or amplicon sequence variant (ASV), "site" could refer to a sample or experiment, and "number of individuals" could refer to number of reads.
 One model is
 $$
@@ -296,3 +355,5 @@ Note:
 1. Expected count is greater than just adding the exponential of the mean of the latent layer to the expected log abundances because of the logarithmic link function.
 2. The model displays over-dispersion as compared with a Poisson model where the variance is the same as the mean, because of the latent noise. (I'm still interested as to how this is different from e.g. a negative-binomial model, though I prefer to use random effects for noise as they are easier to modify and extend to include structure say [amongst other reasons] than likelihoods).
 3. "Faithful correlation" in that the correlation and covariance have the same sign. As well, if $\sigma_{jk} = 0$ then $\mathbb{Cov}(Y_{ij}, Y_{ik}) = 0$.
+
+## Bibliography {-}
