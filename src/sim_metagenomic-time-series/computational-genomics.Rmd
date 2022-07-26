@@ -87,3 +87,163 @@ output: html_document
 * There is an enzyme called luciferase when when it finds phosphate releases some light
 * They use pico titre plates which have a small well 25$\mu$m across
 
+## Introduction to Illumina sequencing
+
+* PCR reaction to amplify DNA in local regions
+* Fluorescent dNTPs (N means any)
+* MiSeq: 1Gb ($2-5,0000)
+* HiSeq: 10Gb (?)
+
+## Illumina paired end sequencing
+
+* 300bp sequences
+* Add adapters to each end...
+
+... skipped a few
+
+## Definitions
+
+* Open reading frame (ORF): a stretch of DNA that can be translated without a stop codon
+* Coding sequences (CDS): e.g. protein encoding gene (PEG); regions of the genome which are actively transcribed and or translated
+* Hypothetical / putative proteins: has not been experimentally proven (trying to move away from this)
+* Polypeptide: a stretch of 20-100 consecutive amino acids
+
+## An overview of DNA sequence assembly
+
+* Most genomes are around 2Mb
+* Sequencing technology: 100 - 50kb
+* How to go from short base pair fragments to longer fragments
+* Reads to contigs to scaffolds
+
+## Naive DNA sequence assembly
+
+* Naive approach, greedy approach, overlap layout consensus, de Bruign graphs
+* Sometimes we have an error in the base
+* Fred scores
+
+```{r}
+#' If the distribution of sequences is random...
+bases <- 4
+possible_kmers <- function(k) bases^k
+
+possible_kmers(3)
+possible_kmers(8)
+possible_kmers(20)
+```
+* The distribution of bases is NOT random!
+
+## Greedy assembly of DNA sequences
+
+* Choose one sequence at random
+* Match it to every other sequence, and keep extending until nothing matches any more and you get a contig
+* Then pick another sequence at random and keep extending that and so on
+* It's a standard greedy type of algorithm
+* Does not work very well for (microbial) genomes
+
+## Overlap layout consensus sequence assembly approaches
+
+* All read vs all read mapping (with short k-mers)
+* Layout to overlap graph
+* Resolve inconsistencies wit a multiple sequence alignment approach
+* newbler (Roche)
+* Doesn't scale well to the size of datasets we have now
+
+## de Brujin graph
+
+* Most modern approaches focus on this
+* https://en.wikipedia.org/wiki/De_Bruijn_graph
+* Directed graph representing overlaps between sequences of symbols
+* It has $m^n$ vertices where $m$ is the number of symbols and $n$ is the subsequence length
+
+```{r}
+all_kmers <- function(seq, k) {
+  substring(seq, 1:(nchar(seq) - k + 1), k:nchar(seq))
+}
+
+kmers1 <- all_kmers("AACCGGTTA", 4)
+kmers2 <- all_kmers("GGTTATAC", 4)
+
+intersect(kmers1, kmers2)
+```
+
+* spades uses a combination of kmers from $k = 31 \to 127$
+
+## Why does paired end sequencing help assembly?
+
+* Challenge with repeat regions, especially if that region is longer than your sequence size
+* Some people in comments say he's talking about "mate pairs" not "paired ends"
+
+## More assembly problems
+
+* Sequences are not random
+* Genomes are riddled with repeat sequences
+* 16S gene is around 1.6kb, and is repeated often in some organisms
+* The longer read technologies help with this
+
+## BLAST
+
+* Basic Local Alignment Search Tool
+* Rapidly search through a database to match query sequence to known sequence
+* Scales with length of query sequence and number of elements of database
+* Use heuristics to make the search go faster
+
+```{r}
+string_matches <- function(string1, string2) {
+  strsplit(string1, "")[[1]] == strsplit(string2, "")[[1]]
+}
+
+string_matches("CGACTAGATC", "GCTCTAGAGG")
+string_matches("CGACTAGATC", "CCAGTTGTTA")
+```
+
+* Both have 5/10 `TRUE` but in the first case only two changes need to be made to switch the sequence whereas five need to be changed in the second case
+
+... skipped more
+
+## k-mers
+
+* k-mer is a string of length $k$
+* Used to make de Bruijn graph
+* Error correction on HTS
+* Look at underrepresented k-mers, which probably represent errors
+* Digital normalisation
+
+```{r}
+kmer_output <- all_kmers("ATTGACATTAGAT", 3)
+table(kmer_output)
+```
+
+* How to count the k-mers in an efficient way?
+* Use multithreading
+* Locking doesn't work, every thread waits for the lock
+* Compare and swap
+  * Guaranteed to be atomic
+  * https://www.ncbi.nlm.nih.gov/pmc/articles/PMC3051319/
+  
+```
+compare_and_swap <- function(location, old_value, new_value) {
+ current_value <- read(location)
+ if(current_value == old_value) location <- new_value
+ return(current_value)
+}
+```
+
+## Bloom filters
+
+* Data structure that guarantee that if you see something it's reported as being there
+* Do not guarantee that if report something as being true that it really is
+* In other words, zero false negatives, but maybe some false positives
+
+```
+hashfn0
+hashfn1
+hashfn2
+hashfn3
+```
+
+* `hashfni` for `i = 0:3` independent and return different values
+  * e.g. `kmer1` outputs `c(5, 12, 7, 3)`
+
+
+
+

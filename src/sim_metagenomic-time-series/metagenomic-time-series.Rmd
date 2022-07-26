@@ -156,7 +156,7 @@ This is unrealistic as it would be unlikely, or for the novel pathogens we are c
 
 Suppose now that the organisms have abundances which vary stochastically, rather than either be fixed or increasing exponentially deterministically.
 
-## Baseline
+### Baseline
 
 For the baseline concentration, we will use a lognormal geometric random walk such that
 $$
@@ -214,7 +214,7 @@ baseline_df %>%
 The key takeaway for me is the even though the noise is IID and Gaussian, when you take the cumulative sum and exponentiate it can lead to large deviations in concentration.
 For example, the maximum concentration value observed was `r max(baseline_df$conc)` -- which is `r max(baseline_df$conc) / baseline` greater than the baseline concentration.
 
-## Exponential
+### Exponential
 
 For the exponential regime, we also suppose a geometric lognormal random walk
 $$
@@ -258,3 +258,41 @@ exponential_df %>%
     labs(x = "Day", y = "", col = "Path number", title = "Exponential behaviour")
 ```
 
+## Observation models
+
+* See: https://arxiv.org/pdf/2001.04343.pdf
+
+### Dirichlet-multinomial model
+
+The Dirichlet is a probability distribution over proportions. 
+$w \sim \text{Dirichlet}(\alpha_1, \ldots, \alpha_K)$ if
+$$
+p(w; \alpha) = \frac{\Gamma(\sum_k \alpha_k)}{\prod_k \Gamma(\alpha_k)} w_1^{\alpha_1 - 1} w_2^{\alpha_2 - 1} \times \cdots \times w_K^{\alpha_K - 1}
+$$
+```{r}
+dirichlet_draw <- gtools::rdirichlet(n = 1, alpha = K_norm_one)
+```
+
+
+### Poisson-lognormal model
+
+* See: https://pln-team.github.io/PLNmodels/
+
+The multivariate Poisson-lognormal model (MPLN) is set-up for analysis of an abunance table, an $n \times p$ matrix $Y$ where $Y_{ij}$ is the number of individuals from species $j \leq p$ observed at site $i \leq n$.
+"Species" could refer to an operational taxonomic unit (OTU) or amplicon sequence variant (ASV), "site" could refer to a sample or experiment, and "number of individuals" could refer to number of reads.
+One model is
+$$
+Y_{ij} \, | \, Z_{ij} \sim \text{Poisson}(\exp(o_{ij} + Z_{ij})), \\
+Z_i \sim \mathcal{N}(\mu_i, \Sigma),
+$$
+where $Z_i$ are assumed to be independent across sites.
+Some moments of $Y$ are given by:
+$$
+\mathbb{E}(Y_{ij}) = \exp(o_{ij} + \mu_{ij} + \sigma_{jj} / 2) > 0 \\
+\mathbb{V}(Y_{ij}) = \mathbb{E}(Y_{ij}) + \mathbb{E}(Y_{ij})^2 (\exp(\sigma_{jj} - 1)) > \mathbb{E}(Y_{ij}) \\
+\mathbb{Cov}(Y_{ij}, Y_{ik}) = \mathbb{E}(Y_{ij}) \mathbb{E}(Y_{ik}) (\exp(\sigma_{jk}) - 1)).
+$$
+Note:
+1. Expected count is greater than just adding the exponential of the mean of the latent layer to the expected log abundances because of the logarithmic link function.
+2. The model displays over-dispersion as compared with a Poisson model where the variance is the same as the mean, because of the latent noise. (I'm still interested as to how this is different from e.g. a negative-binomial model, though I prefer to use random effects for noise as they are easier to modify and extend to include structure say [amongst other reasons] than likelihoods).
+3. "Faithful correlation" in that the correlation and covariance have the same sign. As well, if $\sigma_{jk} = 0$ then $\mathbb{Cov}(Y_{ij}, Y_{ik}) = 0$.

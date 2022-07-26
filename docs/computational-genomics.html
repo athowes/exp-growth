@@ -495,6 +495,208 @@ releases some light</li>
 <li>They use pico titre plates which have a small well 25<span class="math inline">\(\mu\)</span>m across</li>
 </ul>
 </div>
+<div id="introduction-to-illumina-sequencing" class="section level2">
+<h2>Introduction to Illumina sequencing</h2>
+<ul>
+<li>PCR reaction to amplify DNA in local regions</li>
+<li>Fluorescent dNTPs (N means any)</li>
+<li>MiSeq: 1Gb ($2-5,0000)</li>
+<li>HiSeq: 10Gb (?)</li>
+</ul>
+</div>
+<div id="illumina-paired-end-sequencing" class="section level2">
+<h2>Illumina paired end sequencing</h2>
+<ul>
+<li>300bp sequences</li>
+<li>Add adapters to each end…</li>
+</ul>
+<p>… skipped a few</p>
+</div>
+<div id="definitions" class="section level2">
+<h2>Definitions</h2>
+<ul>
+<li>Open reading frame (ORF): a stretch of DNA that can be translated
+without a stop codon</li>
+<li>Coding sequences (CDS): e.g. protein encoding gene (PEG); regions of
+the genome which are actively transcribed and or translated</li>
+<li>Hypothetical / putative proteins: has not been experimentally proven
+(trying to move away from this)</li>
+<li>Polypeptide: a stretch of 20-100 consecutive amino acids</li>
+</ul>
+</div>
+<div id="an-overview-of-dna-sequence-assembly" class="section level2">
+<h2>An overview of DNA sequence assembly</h2>
+<ul>
+<li>Most genomes are around 2Mb</li>
+<li>Sequencing technology: 100 - 50kb</li>
+<li>How to go from short base pair fragments to longer fragments</li>
+<li>Reads to contigs to scaffolds</li>
+</ul>
+</div>
+<div id="naive-dna-sequence-assembly" class="section level2">
+<h2>Naive DNA sequence assembly</h2>
+<ul>
+<li>Naive approach, greedy approach, overlap layout consensus, de Bruign
+graphs</li>
+<li>Sometimes we have an error in the base</li>
+<li>Fred scores</li>
+</ul>
+<pre class="r"><code>#&#39; If the distribution of sequences is random...
+bases &lt;- 4
+possible_kmers &lt;- function(k) bases^k
+
+possible_kmers(3)</code></pre>
+<pre><code>## [1] 64</code></pre>
+<pre class="r"><code>possible_kmers(8)</code></pre>
+<pre><code>## [1] 65536</code></pre>
+<pre class="r"><code>possible_kmers(20)</code></pre>
+<pre><code>## [1] 1.099512e+12</code></pre>
+<ul>
+<li>The distribution of bases is NOT random!</li>
+</ul>
+</div>
+<div id="greedy-assembly-of-dna-sequences" class="section level2">
+<h2>Greedy assembly of DNA sequences</h2>
+<ul>
+<li>Choose one sequence at random</li>
+<li>Match it to every other sequence, and keep extending until nothing
+matches any more and you get a contig</li>
+<li>Then pick another sequence at random and keep extending that and so
+on</li>
+<li>It’s a standard greedy type of algorithm</li>
+<li>Does not work very well for (microbial) genomes</li>
+</ul>
+</div>
+<div id="overlap-layout-consensus-sequence-assembly-approaches" class="section level2">
+<h2>Overlap layout consensus sequence assembly approaches</h2>
+<ul>
+<li>All read vs all read mapping (with short k-mers)</li>
+<li>Layout to overlap graph</li>
+<li>Resolve inconsistencies wit a multiple sequence alignment
+approach</li>
+<li>newbler (Roche)</li>
+<li>Doesn’t scale well to the size of datasets we have now</li>
+</ul>
+</div>
+<div id="de-brujin-graph" class="section level2">
+<h2>de Brujin graph</h2>
+<ul>
+<li>Most modern approaches focus on this</li>
+<li><a href="https://en.wikipedia.org/wiki/De_Bruijn_graph" class="uri">https://en.wikipedia.org/wiki/De_Bruijn_graph</a></li>
+<li>Directed graph representing overlaps between sequences of
+symbols</li>
+<li>It has <span class="math inline">\(m^n\)</span> vertices where <span class="math inline">\(m\)</span> is the number of symbols and <span class="math inline">\(n\)</span> is the subsequence length</li>
+</ul>
+<pre class="r"><code>all_kmers &lt;- function(seq, k) {
+  substring(seq, 1:(nchar(seq) - k + 1), k:nchar(seq))
+}
+
+kmers1 &lt;- all_kmers(&quot;AACCGGTTA&quot;, 4)
+kmers2 &lt;- all_kmers(&quot;GGTTATAC&quot;, 4)
+
+intersect(kmers1, kmers2)</code></pre>
+<pre><code>## [1] &quot;GGTT&quot; &quot;GTTA&quot;</code></pre>
+<ul>
+<li>spades uses a combination of kmers from <span class="math inline">\(k = 31 \to 127\)</span></li>
+</ul>
+</div>
+<div id="why-does-paired-end-sequencing-help-assembly" class="section level2">
+<h2>Why does paired end sequencing help assembly?</h2>
+<ul>
+<li>Challenge with repeat regions, especially if that region is longer
+than your sequence size</li>
+<li>Some people in comments say he’s talking about “mate pairs” not
+“paired ends”</li>
+</ul>
+</div>
+<div id="more-assembly-problems" class="section level2">
+<h2>More assembly problems</h2>
+<ul>
+<li>Sequences are not random</li>
+<li>Genomes are riddled with repeat sequences</li>
+<li>16S gene is around 1.6kb, and is repeated often in some
+organisms</li>
+<li>The longer read technologies help with this</li>
+</ul>
+</div>
+<div id="blast" class="section level2">
+<h2>BLAST</h2>
+<ul>
+<li>Basic Local Alignment Search Tool</li>
+<li>Rapidly search through a database to match query sequence to known
+sequence</li>
+<li>Scales with length of query sequence and number of elements of
+database</li>
+<li>Use heuristics to make the search go faster</li>
+</ul>
+<pre class="r"><code>string_matches &lt;- function(string1, string2) {
+  strsplit(string1, &quot;&quot;)[[1]] == strsplit(string2, &quot;&quot;)[[1]]
+}
+
+string_matches(&quot;CGACTAGATC&quot;, &quot;GCTCTAGAGG&quot;)</code></pre>
+<pre><code>##  [1] FALSE FALSE FALSE  TRUE  TRUE  TRUE  TRUE  TRUE FALSE FALSE</code></pre>
+<pre class="r"><code>string_matches(&quot;CGACTAGATC&quot;, &quot;CCAGTTGTTA&quot;)</code></pre>
+<pre><code>##  [1]  TRUE FALSE  TRUE FALSE  TRUE FALSE  TRUE FALSE  TRUE FALSE</code></pre>
+<ul>
+<li>Both have 5/10 <code>TRUE</code> but in the first case only two
+changes need to be made to switch the sequence whereas five need to be
+changed in the second case</li>
+</ul>
+<p>… skipped more</p>
+</div>
+<div id="k-mers" class="section level2">
+<h2>k-mers</h2>
+<ul>
+<li>k-mer is a string of length <span class="math inline">\(k\)</span></li>
+<li>Used to make de Bruijn graph</li>
+<li>Error correction on HTS</li>
+<li>Look at underrepresented k-mers, which probably represent
+errors</li>
+<li>Digital normalisation</li>
+</ul>
+<pre class="r"><code>kmer_output &lt;- all_kmers(&quot;ATTGACATTAGAT&quot;, 3)
+table(kmer_output)</code></pre>
+<pre><code>## kmer_output
+## ACA AGA ATT CAT GAC GAT TAG TGA TTA TTG 
+##   1   1   2   1   1   1   1   1   1   1</code></pre>
+<ul>
+<li>How to count the k-mers in an efficient way?</li>
+<li>Use multithreading</li>
+<li>Locking doesn’t work, every thread waits for the lock</li>
+<li>Compare and swap
+<ul>
+<li>Guaranteed to be atomic</li>
+<li><a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC3051319/" class="uri">https://www.ncbi.nlm.nih.gov/pmc/articles/PMC3051319/</a></li>
+</ul></li>
+</ul>
+<pre><code>compare_and_swap &lt;- function(location, old_value, new_value) {
+ current_value &lt;- read(location)
+ if(current_value == old_value) location &lt;- new_value
+ return(current_value)
+}</code></pre>
+</div>
+<div id="bloom-filters" class="section level2">
+<h2>Bloom filters</h2>
+<ul>
+<li>Data structure that guarantee that if you see something it’s
+reported as being there</li>
+<li>Do not guarantee that if report something as being true that it
+really is</li>
+<li>In other words, zero false negatives, but maybe some false
+positives</li>
+</ul>
+<pre><code>hashfn0
+hashfn1
+hashfn2
+hashfn3</code></pre>
+<ul>
+<li><code>hashfni</code> for <code>i = 0:3</code> independent and return
+different values
+<ul>
+<li>e.g. <code>kmer1</code> outputs <code>c(5, 12, 7, 3)</code></li>
+</ul></li>
+</ul>
+</div>
 
 
 
