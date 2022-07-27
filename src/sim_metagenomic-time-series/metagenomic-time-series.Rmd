@@ -8,7 +8,13 @@ output:
     df_print: paged
     code_folding: show
 abstract: |
-  In this document we aim to 1) build a modular understanding of the data generating process for metagenomic data at varying levels of complexity 2) simulate metagenomic time series data for a baseline (no threat) regime and an exponential (threat) regime
+    **Background** Rigorously benchmarking methods for exponential growth detection requires metagenomic datasets where the ground truth is known. Simulation is a flexible tool which could meet this need by enabling generation of datasets from known data generating processes. Thinking through how one might realistically simulate data is a furthermore a useful step in building understanding of the real data.
+    
+    **Task** We aim to specify a hierarchical model for generation of metagenomic time series data, under (1) a baseline behaviour regime, and (2) an exponential growth regime. We expect the model to include modules for the behaviour of organisms under each regime, the relationship between organisms and k-mers, and the metagenomic sequencing observation process.
+    
+    **Findings** This work is ongoing, and we believe that the task as specified is still of value. We preliminarily find that specifying an appropriate model for baseline organism behaviour requires some thought, and in particular that the lognormal geometric random walk produces some undesirable features in the data.
+    
+    **Next steps** The next steps are to (1) build an understanding of and incorporate models for sequencing, (2) think of simple ways to prevent the issue observed with random walks, and (3) save some simulated data-sets ready to try     inference.
 ---
 
 ```{r echo = FALSE}
@@ -208,7 +214,7 @@ For the baseline concentration, we will use a lognormal geometric random walk su
 $$
 c^{(b)}_t = c^{(b)}_{t - 1} \times \exp \left( \epsilon^{(b)}_t \right)
 $$
-where $\exp(\epsilon^{(b)}_t) \sim \mathcal{N}(0, \sigma_b^2)$.
+where $\epsilon^{(b)}_t \sim \mathcal{N}(0, \sigma_b^2)$.
 Another way to calculate the baseline concentration at time $t$, $c^{(b)}_t$, is as
 $$
 c^{(b)}_t = c^{(b)}_{0} \times \exp \left( \sum_{s = 1}^t \epsilon^{(b)}_s \right)
@@ -226,7 +232,7 @@ We can use the formula for the moment generating function of a Gaussian random v
 $$
 m_X(u) = \mathbb{E} \left[ e^{uX} \right] = \exp(\mu u + \sigma^2u^2 / 2)
 $$
-to know that the expected concentration at time $T$, say, under this model is
+to know that the expected concentration at time $t$, say, under this model is
 $$
 \mathbb{E} \left[ c^{(b)}_t \right] = c^{(b)}_{0} \exp(\sigma_b^2/2) > c^{(b)}_{0}.
 $$
@@ -280,8 +286,11 @@ For the exponential regime, we also suppose a geometric lognormal random walk
 $$
 c^{(e)}_t = c^{(e)}_{t - 1} \times \exp \left( \epsilon^{(e)}_t \right)
 $$
-where $\exp(\epsilon^{(e)}_t) \sim \mathcal{N}(r, \sigma_e^2)$ and the growth rate $r > 0$.
-The expected concentration is $c^{(b)}_{0} \times \exp(rt)$.
+where $\epsilon^{(e)}_t \sim \mathcal{N}(r, \sigma_e^2)$ and the growth rate $r > 0$.
+The expected concentration at time $t$ under this model is
+$$
+\mathbb{E} \left[ c^{(e)}_t \right] = c^{(e)}_{0} \exp(rt + \sigma_e^2/2).
+$$
 Let's simulate some paths from this distribution as before.
 
 ```{r}
