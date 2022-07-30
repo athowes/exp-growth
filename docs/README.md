@@ -5,3 +5,4 @@
 * [poisson-regression-theory](https://athowes.github.io/exp-growth/poisson-regression-theory)
 * [ppp-model](https://athowes.github.io/exp-growth/ppp-model)
 * [qPCR](https://athowes.github.io/exp-growth/qPCR)
+* [scoping-poisson](https://athowes.github.io/exp-growth/scoping-poisson)
