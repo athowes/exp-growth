@@ -6,7 +6,7 @@ output:
   html_document:
     toc: yes
     df_print: paged
-    code_folding: show
+    code_folding: hide
 abstract: |
     **Background** Rigorously benchmarking methods for exponential growth detection requires metagenomic datasets where the ground truth is known. Simulation is a flexible tool which could meet this need by enabling generation of datasets from known data generating processes. Thinking through how one might realistically simulate data is a furthermore a useful step in building understanding of the real data.
     
@@ -14,10 +14,10 @@ abstract: |
     
     **Findings** This work is ongoing, and we believe that the task as specified is still of value. We preliminarily find that specifying an appropriate model for baseline organism behaviour requires some thought, and in particular that the lognormal geometric random walk produces some undesirable features in the data.
     
-    **Next steps** The next steps are to (1) build an understanding of and incorporate models for sequencing, (2) think of simple ways to prevent the issue observed with random walks, and (3) save some simulated data-sets ready to try     inference.
+    **Next steps** The next steps are to (1) build an understanding of and incorporate models for sequencing, (2) think of simple ways to prevent the issue observed with random walks, and (3) save some simulated data-sets ready to try inference.
 ---
 
-```{r echo = FALSE}
+```{r echo = FALSE, message=FALSE}
 knitr::opts_chunk$set(
   echo = TRUE,
   warning = FALSE,
@@ -44,7 +44,7 @@ n_kmer <- n_bp - k
 time_window <- 14
 baseline <- 100
 exp_initial <- 1
-r <- 1
+r <- 0.4
 read_depth <- 10^4
 ```
 
@@ -58,6 +58,7 @@ We collect data over a period of `r time_window` days $t = 0, 1, \dots$ at a sin
 ### Organism-level baseline and exponential regimes
 
 We consider two regimes 1) baseline and 2) exponential growth.
+
 In the baseline regime, a species has a concentration $c^{(b)}$ in water of `r baseline` copy per $\mu$L^[The units don't matter much.], independent of the day.
 $$
 c^{(b)}_t = c^{(b)}
@@ -68,18 +69,22 @@ c^{(e)}_t = c^{(e)}_0 \exp(rt)
 $$
 where $r$ is the growth rate which we take to be `r r`, and $c^{(e)}_0$ is the initial exponential concentration which we take to be `r exp_initial` -- lower than the baseline concentration as we assume the exponentially increasing organism to be novel.
 
+The true concentration of the baseline organisms over the time window is:
+
 ```{r}
-#' The concentration of the baseline organisms over the time window
 conc_baseline <- rep(baseline, time_window)
 conc_baseline
+```
 
-#' The concentration of the exponentially increasing organism over the time window
+And the true concentration of the exponentially increasing organism over the time window is:
+
+```{r}
 conc_exponential <- exp_initial * exp(r * 0:13)
 conc_exponential
 ```
 
 Suppose that organisms `r baseline_indices` follow the baseline behaviour and organism `r exponential_indices` follows the exponential behaviour.
-We will represent the true concentrations of each organism with a matrix `C` as follows:
+We will represent the true concentrations of each organism with a matrix `C`:
 
 ```{r}
 C <- matrix(
@@ -128,7 +133,7 @@ get_regime <- function(organism_index) {
 }
 
 #' Testing that this function works as intended
-purrr::map_chr(1:11, get_regime)
+stopifnot(purrr::map_chr(1:2, get_regime) == c("exponential", "baseline"))
 
 data.frame(count = sample_one) %>%
   mutate(
@@ -165,6 +170,8 @@ sample_df <- sample %>%
     kmer = rep(rep(1:n_kmer, each = time_window), times = n_organism),
     organism = rep(1:n_organism, each = n_kmer * time_window)
   )
+
+saveRDS(sample_df, "sample0.rds")
 ```
 
 The data frame `sample_df` filtered to the first $k$-mer from the first organism is given by:
@@ -196,43 +203,29 @@ ggplot(sample_summary, aes(x = day, ymin = count_lower, y = count_median, ymax =
 pickout_day <- 10
 ```
 
-With these settings, on day `r pickout_day` the median count of organism 1 is `r filter(sample_summary, day == pickout_day)$count_median`.
-At this stage, the exponential growth curve has started to level off because $k$-mers from organism 1 already represent `r 100 * filter(sample_summary, day == pickout_day)$count_median * n_kmer / read_depth`\% of the total reads.
-This is unrealistic as it would be unlikely, or for the novel pathogens we are considering essentially impossible, for any one organism to saturate the space.
-<!-- * we expect the exponentially increasing viruses we are catching to have a very small initial relative abundance; so you could start this one with a much lower concentration, and then it won’t saturate over the simulation period -->
+With these settings, on day `r pickout_day` the median count of organism 1 is `r filter(sample_summary, day == pickout_day)$count_median` and $k$-mers from organism 1 represent `r 100 * filter(sample_summary, day == pickout_day)$count_median * n_kmer / read_depth`\% of the total reads.
 
-Now, we will start to make this simulation more realistic.
+Now, we will start to make this simulation more realistic by adding sources of noise.
 
 ## Adding noise to the true abundances
 
 In reality, the organism abundances will vary, neither being fixed to a constant or increasing deterministically.
 We will now suppose that the abundances vary stochastically as follows.
 
-### Baseline
+### Lognormal geometric random walk
 
-For the baseline concentration, we will use a lognormal geometric random walk such that
+For the baseline concentration, one possible model is a lognormal geometric random walk such that
 $$
 c^{(b)}_t = c^{(b)}_{t - 1} \times \exp \left( \epsilon^{(b)}_t \right)
 $$
 where $\epsilon^{(b)}_t \sim \mathcal{N}(0, \sigma_b^2)$.
-Another way to calculate the baseline concentration at time $t$, $c^{(b)}_t$, is as
+Another way to calculate the baseline concentration at time $t$, $c^{(b)}_t$, is as $c^{(b)}_t = c^{(b)}_{0} \times \exp \left( x^{(b)}_t \right)$ where $x^{(b)}_t = \sum_{s = 1}^t \epsilon^{(b)}_s$ follows a random walk.
+The expected value and variance of this random walk are
 $$
-c^{(b)}_t = c^{(b)}_{0} \times \exp \left( \sum_{s = 1}^t \epsilon^{(b)}_s \right)
+\mathbb{E}[x^{(b)}_t] = \mathbb{E} \left[ \sum_{s = 1}^t \epsilon^{(b)}_s \right] = \sum_{s = 1}^t \mathbb{E} \left[ \epsilon^{(b)}_s \right] = 0, \\
+\mathbb{Var} [ x^{(b)}_t ] = \mathbb{Var} \left[ \sum_{s = 1}^t \epsilon^{(b)}_s \right] = \sum_{s = 1}^t \mathbb{Var} \left[ \epsilon^{(b)}_s \right] = t\sigma_b^2
 $$
-Note that the expected value of the cumulative sum of innovations is
-$$
-\mathbb{E} \left[ \sum_{s = 1}^t \epsilon^{(b)}_s \right] = \sum_{s = 1}^t \mathbb{E} \left[ \epsilon^{(b)}_s \right] = 0,
-$$
-and the variance is
-$$
-\mathbb{Var} \left[ \sum_{s = 1}^t \epsilon^{(b)}_s \right] = \sum_{s = 1}^t \mathbb{Var} \left[ \epsilon^{(b)}_s \right] = t\sigma_b^2.
-$$
-
-We can use the formula for the moment generating function of a Gaussian random variable $X \sim \mathcal{N}(\mu, \sigma^2)$
-$$
-m_X(u) = \mathbb{E} \left[ e^{uX} \right] = \exp(\mu u + \sigma^2u^2 / 2)
-$$
-to know that the expected concentration at time $t$, say, under this model is
+We can use the formula for the moment generating function of a Gaussian random variable $X \sim \mathcal{N}(\mu, \sigma^2)$, $m_X(u) = \mathbb{E} \left[ e^{uX} \right] = \exp(\mu u + \sigma^2u^2 / 2)$, to calculate that the expected concentration at time $t$ under this model is
 $$
 \mathbb{E} \left[ c^{(b)}_t \right] = c^{(b)}_{0} \exp(\sigma_b^2/2) > c^{(b)}_{0}.
 $$
@@ -252,45 +245,44 @@ baseline_df <- data.frame(
   group_by(path_number) %>%
   arrange(path_number) %>%
   mutate(
-    cumsum_epsilon = cumsum(epsilon),
-    conc = baseline * exp(cumsum_epsilon)
+    x = cumsum(epsilon),
+    conc = baseline * exp(x)
   ) %>%
   ungroup()
 
-baseline_df %>%
-  pivot_longer(
-    cols = c("epsilon", "cumsum_epsilon", "conc"),
-    names_to = "variable",
-    values_to = "value"
-  ) %>%
-  mutate(
-    variable = recode_factor(variable, 
-      "epislon" = "epsilon", 
-      "cumsum_epsilon" = "cumsum(epsilon)",
-      "conc" = "Concentration")
-  ) %>%
-  ggplot(aes(x = day, y = value, group = path_number, col = path_number)) +
-    geom_line() +
-    facet_wrap(~variable, ncol = 1, scales = "free") +
-    scale_colour_manual(values = cbpalette) +
-    theme_minimal() +
-    labs(x = "Day", y = "", col = "Path number", title = "Baseline behaviour")
+time_series_plot <- function(df, title) {
+  df %>%
+    pivot_longer(
+      cols = c("epsilon", "x", "conc"),
+      names_to = "variable",
+      values_to = "value"
+    ) %>%
+    mutate(
+      variable = recode_factor(variable, 
+        "epislon" = "epsilon", 
+        "x" = "x",
+        "conc" = "Concentration")
+    ) %>%
+    ggplot(aes(x = day, y = value, group = path_number, col = path_number)) +
+      geom_line() +
+      facet_wrap(~variable, ncol = 1, scales = "free") +
+      scale_colour_manual(values = cbpalette) +
+      theme_minimal() +
+      labs(x = "Day", y = "", col = "Path number", title = title)
+}
+
+time_series_plot(baseline_df, "Baseline lognormal geometric random walk behaviour")
 ```
 
-The key takeaway for me is the even though the noise is IID and Gaussian, when you take the cumulative sum and exponentiate it can lead to large deviations in concentration.
-For example, the maximum concentration value observed was `r max(baseline_df$conc)` -- which is `r max(baseline_df$conc) / baseline` greater than the baseline concentration.
+The key takeaway here about the lognormal geometric random walk model is that even though the noise is IID and Gaussian, when you take the cumulative sum and exponentiate it can lead to large deviations in concentration, which follows from the variance of a random walk increasing linearly in time.
+The maximum concentration value observed was `r max(baseline_df$conc)` -- which is `r max(baseline_df$conc) / baseline` greater than the baseline concentration.
 
-### Exponential
-
-For the exponential regime, we also suppose a geometric lognormal random walk
+For the exponential regime, we could also suppose a geometric lognormal random walk
 $$
 c^{(e)}_t = c^{(e)}_{t - 1} \times \exp \left( \epsilon^{(e)}_t \right)
 $$
-where $\epsilon^{(e)}_t \sim \mathcal{N}(r, \sigma_e^2)$ and the growth rate $r > 0$.
-The expected concentration at time $t$ under this model is
-$$
-\mathbb{E} \left[ c^{(e)}_t \right] = c^{(e)}_{0} \exp(rt + \sigma_e^2/2).
-$$
+where $\epsilon^{(e)}_t \sim \mathcal{N}(r, \sigma_e^2)$ and the growth rate $r > 0$, and the expected concentration at time $t$ under this model is $\mathbb{E} \left[ c^{(e)}_t \right] = c^{(e)}_{0} \exp(rt + \sigma_e^2/2)$.
+
 Let's simulate some paths from this distribution as before.
 
 ```{r}
@@ -302,29 +294,39 @@ exponential_df <- data.frame(
   group_by(path_number) %>%
   arrange(path_number) %>%
   mutate(
-    cumsum_epsilon = cumsum(epsilon),
-    conc = baseline * exp(cumsum_epsilon)
+    x = cumsum(epsilon),
+    conc = baseline * exp(x)
   ) %>%
   ungroup()
 
-exponential_df %>%
-  pivot_longer(
-    cols = c("epsilon", "cumsum_epsilon", "conc"),
-    names_to = "variable",
-    values_to = "value"
+time_series_plot(exponential_df, "Exponential lognormal geometric random walk behaviour")
+```
+
+### Lognormal geometric auto-regressive process
+
+To remedy the issue observed above, we could use a auto-regressive process for $x^{(b)}_t$ rather than a random walk.
+Such a model is specified recursively by
+$$
+x^{(b)}_1 \sim \left( 0, \frac{1}{1 - \rho^2} \right), \\
+x^{(b)}_t = \rho x^{(b)}_{t - 1} + \epsilon^{(b)}_t, \quad t = 2, \ldots, T, 
+$$
+where the lag-one correlation parameter $\rho \in (0, 1)$ determines the extent of autocorrelation, and $\epsilon^{(b)}_t \sim \mathcal{N}(0, 1)$ as before.
+
+```{r}
+baseline_df <- data.frame(
+  day = rep(1:time_window, times = n_baseline_paths), 
+  epsilon = rnorm(time_window * n_baseline_paths),
+  path_number = as.factor(rep(1:n_baseline_paths, each = time_window))
   ) %>%
+  group_by(path_number) %>%
+  arrange(path_number) %>%
   mutate(
-    variable = recode_factor(variable, 
-      "epislon" = "epsilon", 
-      "cumsum_epsilon" = "cumsum(epsilon)",
-      "conc" = "Concentration")
+    x = stats::arima.sim(model = list(order = c(1, 0, 0), ar = 0.75), n = time_window, innov = epsilon),
+    conc = baseline * exp(x)
   ) %>%
-  ggplot(aes(x = day, y = value, group = path_number, col = path_number)) +
-    geom_line() +
-    facet_wrap(~variable, ncol = 1, scales = "free") +
-    scale_colour_manual(values = cbpalette) +
-    theme_minimal() +
-    labs(x = "Day", y = "", col = "Path number", title = "Exponential behaviour")
+  ungroup()
+
+time_series_plot(baseline_df, "Baseline lognormal geometric auto-regressive behaviour")
 ```
 
 ## Sequencing observation models
@@ -334,35 +336,44 @@ See @townes2020review for a nice review of models for count data.
 
 ### Dirichlet-multinomial model
 
-The Dirichlet is a probability distribution over proportions. 
-$w \sim \text{Dirichlet}(\alpha_1, \ldots, \alpha_K)$ if
+Rather than assuming that during sequencing the probabilities of sampling each $k$-mer are given by the true proportions of the $k$-mer, we might want to add additional noise.
+One way to do this is to sample the proportions $w$ from a probability distribution over the simplex such as the Dirichlet.
+Given a vector of positive real numbers $\alpha = (\alpha_1, \ldots, \alpha_K)$ then $w \sim \text{Dirichlet}(\alpha_1, \ldots, \alpha_K)$ if
 $$
 p(w; \alpha) = \frac{\Gamma(\sum_k \alpha_k)}{\prod_k \Gamma(\alpha_k)} w_1^{\alpha_1 - 1} w_2^{\alpha_2 - 1} \times \cdots \times w_K^{\alpha_K - 1}
 $$
+The expected value of $w_i$ is $\alpha_i / \sum_{k = 1}^K \alpha_k$.
 
 ```{r}
 dirichlet_draw <- gtools::rdirichlet(n = 1, alpha = K_norm[1, ])
 ```
 
-### Poisson-lognormal model
+<!-- ### Poisson-lognormal model -->
 
-The multivariate Poisson-lognormal model (MPLN) [@chiquet2021poisson] is set-up for analysis of an abunance table, an $n \times p$ matrix $Y$ where $Y_{ij}$ is the number of individuals from species $j \leq p$ observed at site $i \leq n$.
-"Species" could refer to an operational taxonomic unit (OTU) or amplicon sequence variant (ASV), "site" could refer to a sample or experiment, and "number of individuals" could refer to number of reads.
-One model is
-$$
-Y_{ij} \, | \, Z_{ij} \sim \text{Poisson}(\exp(o_{ij} + Z_{ij})), \\
-Z_i \sim \mathcal{N}(\mu_i, \Sigma),
-$$
-where $Z_i$ are assumed to be independent across sites.
-Some moments of $Y$ are given by:
-$$
-\mathbb{E}(Y_{ij}) = \exp(o_{ij} + \mu_{ij} + \sigma_{jj} / 2) > 0 \\
-\mathbb{V}(Y_{ij}) = \mathbb{E}(Y_{ij}) + \mathbb{E}(Y_{ij})^2 (\exp(\sigma_{jj} - 1)) > \mathbb{E}(Y_{ij}) \\
-\mathbb{Cov}(Y_{ij}, Y_{ik}) = \mathbb{E}(Y_{ij}) \mathbb{E}(Y_{ik}) (\exp(\sigma_{jk}) - 1)).
-$$
-Note:
-1. Expected count is greater than just adding the exponential of the mean of the latent layer to the expected log abundances because of the logarithmic link function.
-2. The model displays over-dispersion as compared with a Poisson model where the variance is the same as the mean, because of the latent noise. (I'm still interested as to how this is different from e.g. a negative-binomial model, though I prefer to use random effects for noise as they are easier to modify and extend to include structure say [amongst other reasons] than likelihoods).
-3. "Faithful correlation" in that the correlation and covariance have the same sign. As well, if $\sigma_{jk} = 0$ then $\mathbb{Cov}(Y_{ij}, Y_{ik}) = 0$.
+<!-- The multivariate Poisson-lognormal model (MPLN) [@chiquet2021poisson] is set-up for analysis of an abunance table, an $n \times p$ matrix $Y$ where $Y_{ij}$ is the number of individuals from species $j \leq p$ observed at site $i \leq n$. -->
+<!-- "Species" could refer to an operational taxonomic unit (OTU) or amplicon sequence variant (ASV), "site" could refer to a sample or experiment, and "number of individuals" could refer to number of reads. -->
+<!-- One model is -->
+<!-- $$ -->
+<!-- Y_{ij} \, | \, Z_{ij} \sim \text{Poisson}(\exp(o_{ij} + Z_{ij})), \\ -->
+<!-- Z_i \sim \mathcal{N}(\mu_i, \Sigma), -->
+<!-- $$ -->
+<!-- where $Z_i$ are assumed to be independent across sites. -->
+<!-- Some moments of $Y$ are given by: -->
+<!-- $$ -->
+<!-- \mathbb{E}(Y_{ij}) = \exp(o_{ij} + \mu_{ij} + \sigma_{jj} / 2) > 0 \\ -->
+<!-- \mathbb{V}(Y_{ij}) = \mathbb{E}(Y_{ij}) + \mathbb{E}(Y_{ij})^2 (\exp(\sigma_{jj} - 1)) > \mathbb{E}(Y_{ij}) \\ -->
+<!-- \mathbb{Cov}(Y_{ij}, Y_{ik}) = \mathbb{E}(Y_{ij}) \mathbb{E}(Y_{ik}) (\exp(\sigma_{jk}) - 1)). -->
+<!-- $$ -->
+<!-- Note: -->
+<!-- 1. Expected count is greater than just adding the exponential of the mean of the latent layer to the expected log abundances because of the logarithmic link function. -->
+<!-- 2. The model displays over-dispersion as compared with a Poisson model where the variance is the same as the mean, because of the latent noise. (I'm still interested as to how this is different from e.g. a negative-binomial model, though I prefer to use random effects for noise as they are easier to modify and extend to include structure say [amongst other reasons] than likelihoods). -->
+<!-- 3. "Faithful correlation" in that the correlation and covariance have the same sign. As well, if $\sigma_{jk} = 0$ then $\mathbb{Cov}(Y_{ij}, Y_{ik}) = 0$. -->
+
+## Futher potentially useful links
+
+* [Trying to generalise the dirichlet-multinomial (non-analytical) framework (replacing Dirichlet with other distributions)](https://discourse.mc-stan.org/t/trying-to-generalise-the-dirichlet-multinomial-non-analytical-framework-replacing-dirichlet-with-other-distributions/6117)
+* [Generate a random set of numbers with fixed sum and desired means and variances?](https://stats.stackexchange.com/questions/220543/generate-a-random-set-of-numbers-with-fixed-sum-and-desired-means-and-variances/300500#300500)
+* [Compositional data](https://en.wikipedia.org/wiki/Compositional_data#Aitchison_geometry)
+* [Why there are not (long tail) alternatives to dirichlet-multinomial (while there are for posisson-gamma)](https://stats.stackexchange.com/questions/378196/why-there-are-not-long-tail-alternatives-to-dirichlet-multinomial-while-there)
 
 ## Bibliography {-}

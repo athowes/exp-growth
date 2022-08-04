@@ -6,7 +6,10 @@ artefacts:
       filenames:
         - computational-genomics.html
         - metagenomic-time-series.html
-
+  - data:
+      description: Simulated metagenomics time-series data
+      filenames:
+        - sample0.rds
 resources:
   - computational-genomics.Rmd
   - metagenomic-time-series.Rmd
