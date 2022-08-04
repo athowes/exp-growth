@@ -102,3 +102,19 @@ Pandemic prediction research primarily has the effect of:
 Let $S \in \{0, 1\}$ be the scenario in which pandemic prediction research takes place $S = 1$ or does not $S = 0$.
 We are interested in determining $\mathbb{E}[H \, | \, S = 0]$ and $\mathbb{E}[H \, | \, S = 1]$.
 
+```{r}
+spillover_given_conditions <- 0.01
+spillover_conditions <- 0.3
+
+outbreak_given_conditions <- 0.6
+outbreak_conditions <- 0.05
+
+spillover <- spillover_given_conditions * spillover_conditions
+outbreak <- outbreak_given_conditions * outbreak_conditions
+spillover * outbreak
+```
+
+```{r}
+zoonotic_pathogens <- 627000 
+spillover * outbreak * zoonotic_pathogens
+```
