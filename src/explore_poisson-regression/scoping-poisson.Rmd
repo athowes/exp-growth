@@ -104,6 +104,10 @@ So, a simple method for detecting exponential growth is to **fit this Poisson re
 ## Computational performance
 
 [TODO] Would it be computationally feasible?
+Poisson regression is a simple method as statistical models go, so if it's not computationally feasible then we are in trouble.
+The computational feasibility depends on exactly what we mean by "Poisson regression".
+There are many different algorithms that could be used for computation, and they have different properties.
+See e.g. https://en.wikipedia.org/wiki/Maximum_likelihood_estimation#Iterative_procedures.
 
 ### Time costs
 
