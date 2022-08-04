@@ -3,4 +3,4 @@
 
 rmarkdown::render("poisson-regression-theory.Rmd")
 rmarkdown::render("exponential-detection.Rmd")
-rmarkdown::render("scoping-poisson.Rmd")
+rmarkdown::render("explain-poisson.Rmd")

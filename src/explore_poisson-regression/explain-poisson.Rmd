@@ -1,0 +1,169 @@
+---
+title: "Explaining Poisson regression"
+author: "Adam Howes"
+output:
+  html_document:
+    toc: yes
+    df_print: paged
+    code_folding: hide
+abstract: |
+    **Background** Detecting exponential growth is a central goal of the Nucleic Acid Observatory (NAO). Regression using a Poisson generalised linear model (GLM) is possibly the simplest statistical approach to detecting exponential growth. 
+    
+    **Task** In this notebook, we aim to explain what Poisson regression is and why it might be suitable as an exponential growth detection method.
+    
+    **Next steps** This notebook could be extended by describing the statistical properties and computational requirements of Poisson regression in further depth.
+---
+
+```{r setup, class.source = 'fold-hide'}
+knitr::opts_chunk$set(
+  echo = TRUE,
+  cache = TRUE,
+  autodep = TRUE,
+  cache.comments = FALSE
+)
+
+options(scipen = 999)
+
+cbpalette <- multi.utils::cbpalette()
+```
+
+```{r libraries, message=FALSE, class.source = 'fold-hide'}
+library(tidyverse)
+library(cowplot)
+library(patchwork)
+theme_set(theme_minimal())
+```
+
+## Background
+
+### What is the Poisson distribution
+
+The Poisson distribution is a discrete probability distribution for the number of events occurring in a fixed interval e.g. of time or space.
+It makes two key assumptions: (1) events occur at a constant rate, and (2) events occur independently.
+If $y$ follows a Poisson distribution with constant rate $\lambda$ then we write
+$$
+y \sim \text{Pois}(\lambda).
+$$
+
+Why might this distribution be relevant to the NAO?
+The Poisson distribution is a reasonable first guess for the variation in how often we see a particular $k$-mer.
+For example, suppose $\lambda = 10$ copies per day.
+That means we expect to see on average 10 copies in any given day, but naturally there will be some variation.
+It might be reasonable to describe that variation, to a first approximation, with a Poisson distribution^[In reality, you might be thinking that $k$-mers do not arise independently (and I think you’d be right!). That’s something we might want to think about attending to eventually.] 
+
+```{r}
+data.frame(x = 0:30) %>%
+  mutate(y = dpois(x, lambda = 10)) %>%
+  ggplot(aes(x = x, y = y)) +
+    geom_col(fill = cbpalette[5], alpha = 0.7) +
+    theme_minimal() +
+    labs(
+      x = "Number of copies observed", y = "Probability",
+      title = "Poisson distribution with rate parameter 10"
+    )
+```
+
+The NAO will not just observe k-mers on one day, but on many consecutive days.
+We represent the number of $k$-mers observed on day $t$ as $y_t$.
+For example, over a 14 day period we might collect the data
+$$
+(y_1 , y_2, y_3, y_4, \ldots, y_{13}, y_{14}).
+$$
+
+Data where the index (here $1, \ldots, 14$) refers to time points are known as "time-series".
+At each time $t$ we could assume that the data follows a Poisson distribution with daily rate $\lambda_t$
+$$
+y_t \sim \text{Pois}(\lambda_t).
+$$
+Suppose that the rate doesn’t change by day, and $\lambda_t = 10$ for all days.
+We can simulate a draw from this time-series as follows, where the dashed line is the expected number of copies observed (10):
+
+```{r}
+df <- data.frame(t = 1:14) %>%
+  mutate(y = rpois(t, lambda = 10))
+
+ggplot(df, aes(x = t, y = y)) +
+  geom_point(col = cbpalette[3], size = 2.5) +
+  theme_minimal() +
+  geom_hline(yintercept = 10, linetype = "dashed") +
+  labs(x = "Day", y = "Number of copies observed")
+```
+
+Each data point is a draw from the Poisson distribution with rate parameter 10 described above.
+While this data happens to have a constant rate, there is no reason that has to be the case.
+When we see some new time-series data, we would like to learn the values of $\lambda_t$ which generated it.
+This can be done using Poisson regression!
+And, if you're thinking ahead, then learning that the underlying values of $\lambda_t$ follow an exponential growth pattern (unlike the underlying values here which are constant) is exactly what's required to classify a time-series as growing exponentially. 
+
+### What is Poisson regression
+
+Poisson regression is similar to [linear regression](https://en.wikipedia.org/wiki/Linear_regression) where you essentially fit a straight line through the data.
+
+There are two key differences.
+
+1. Linear regression assumes Gaussian errors, and we want Poisson errors instead. Gaussian errors are not suitable for count data as they are continuous rather than discrete.
+2. In Poisson regression we want to infer a rate parameter. Rate parameters must be greater than zero $\lambda_t > 0$ (try to think about what it would mean for a rate to be negative) so we can’t just use a linear equation of the form
+$$
+\lambda_t= \beta_0 + \beta_1 x_{1t} + \cdots + \beta_{p}x_{pt} = \beta^\top x
+$$
+as we would in a linear regression.
+This is because there is nothing in the above equation which guarantees that $\lambda_t > 0$.
+
+How can you guarantee that, no matter the value of $\beta^\top x$ on the right hand side, the rate parameter is positive?
+One solution is to use an inverse link function $g^{-1}: \mathbb{R} \to \mathbb{R}^{+}$ which maps from the real numbers to the positive numbers
+$$
+\lambda_t = g^{-1}(\beta^\top x).
+$$
+Models like this where we use a link function are called generalised linear models (GLMs).
+In Poisson regression, we use the exponential function as a link
+$$
+\lambda_t = \exp(\beta^\top x).
+$$
+The Poisson regression model is then fully expressed as follows
+$$
+y_t \sim \text{Pois}(\lambda_t), \\
+\log(\lambda_t) = \beta^\top x.
+$$
+
+### Why might this approach work to detect exponential growth
+
+Suppose that we think that our underlying Poisson rate is exponentially increasing.
+We could choose to use a model which includes an intercept $\beta_0$ and one covariate $x$ which represents the time $t$
+$$
+\log(\lambda_t) = \beta_0 + \beta t
+$$
+
+If we fit this model to data, and find that a point estimate for the $\beta$ parameter is $\hat \beta = 1$ then this would correspond to an underlying Poisson rate $\lambda_t$ which increases exponentially, exactly what we would like to detect!
+So, a simple method for detecting exponential growth is to **fit this Poisson regression model then look at the inference for the slope parameter $\beta$ and assess if it is sufficiently above zero.**
+
+Let's try it with the data we generated above.
+Poisson GLM models are easy to fit in R, only requiring the following code:
+
+```{r class.source = 'fold-show'}
+fit <- glm(y ~ 1 + t, family = "poisson", data = df)
+fit
+```
+
+<!-- ### A note on offsets -->
+
+<!-- [TODO] You could "offset" some measure of the total amount. -->
+
+<!-- ## Statistical performance -->
+
+<!-- [TODO] How well would this actually work? -->
+
+<!-- ## Computational performance -->
+
+<!-- [TODO] Would it be computationally feasible? -->
+<!-- Poisson regression is a simple method as statistical models go, so if it's not computationally feasible then we are in trouble. -->
+<!-- The computational feasibility depends on exactly what we mean by "Poisson regression". -->
+<!-- There are many different algorithms that could be used for computation, and they have different properties. -->
+<!-- See e.g. https://en.wikipedia.org/wiki/Maximum_likelihood_estimation#Iterative_procedures. -->
+
+<!-- ### Time costs -->
+
+<!-- [TODO] What is the runtime? -->
+
+<!-- ### Storage costs -->
+
+<!-- [TODO] How much storage does it require? -->

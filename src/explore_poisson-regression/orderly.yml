@@ -6,7 +6,7 @@ artefacts:
       filenames:
         - poisson-regression-theory.html
         - exponential-detection.html
-        - scoping-poisson.html
+        - explain-poisson.html
 
 packages:
   - tidyverse
@@ -14,4 +14,4 @@ packages:
 resources:
   - poisson-regression-theory.Rmd
   - exponential-detection.Rmd
-  - scoping-poisson.Rmd
+  - explain-poisson.Rmd
