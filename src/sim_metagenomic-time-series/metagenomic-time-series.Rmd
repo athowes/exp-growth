@@ -168,7 +168,8 @@ sample_df <- sample %>%
     id = as.numeric(id),
     day = as.numeric(day),
     kmer = rep(rep(1:n_kmer, each = time_window), times = n_organism),
-    organism = rep(1:n_organism, each = n_kmer * time_window)
+    organism = rep(1:n_organism, each = n_kmer * time_window),
+    regime = str_to_title(purrr::map_chr(organism, get_regime))
   )
 
 saveRDS(sample_df, "sample0.rds")
@@ -178,25 +179,27 @@ The data frame `sample_df` filtered to the first $k$-mer from the first organism
 
 `r filter(sample_df, kmer == 1, organism == 1)`
 
-Let's plot the data from organism `r exponential_indices` which we have set to be exponentially increasing:
+Let's plot the data from organism `r exponential_indices` which we have set to be exponentially increasing, together with the data from all other organisms which we have set to follow a baseline distribution:
 
 ```{r}
 sample_summary <- sample_df %>%
-  filter(organism %in% exponential_indices) %>%
-  group_by(day) %>%
+  group_by(day, regime) %>%
   summarise(
     count_upper = quantile(count, 0.95),
     count_median = median(count),
     count_lower = quantile(count, 0.05)
   )
 
-ggplot(sample_summary, aes(x = day, ymin = count_lower, y = count_median, ymax = count_upper)) +
-    geom_ribbon(alpha = 0.1) +
-    geom_point() +
-    geom_point(data = filter(sample_df, organism == 1), aes(x = day, y = count, col = kmer),
-               alpha = 0.1, inherit.aes = FALSE) + 
+ggplot(sample_summary, aes(x = day, ymin = count_lower, y = count_median, ymax = count_upper, group = regime)) +
+    geom_ribbon(alpha = 0.1, aes(fill = regime)) +
+    geom_line(aes(col = regime), size = 1.5) +
+    geom_line(data = sample_df, aes(x = day, y = count, col = regime, group = id),
+               alpha = 0.025, inherit.aes = FALSE) + 
     theme_minimal() +
-    labs(x = "Day", y = "Number of reads in sample", col = "k-mer")
+    scale_color_manual(values = cbpalette) +
+    scale_fill_manual(values = cbpalette) +
+    guides(fill = "none") +
+    labs(x = "Day", y = "Number of reads in sample", col = "Regime")
 ```
 
 ```{r}
