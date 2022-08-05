@@ -233,25 +233,48 @@ $$
 \mathbb{E} \left[ c^{(b)}_t \right] = c^{(b)}_{0} \exp(\sigma_b^2/2) > c^{(b)}_{0}.
 $$
 
+For the exponential regime, we could also suppose a geometric lognormal random walk
+$$
+c^{(e)}_t = c^{(e)}_{t - 1} \times \exp \left( \epsilon^{(e)}_t \right)
+$$
+where $\epsilon^{(e)}_t \sim \mathcal{N}(r, \sigma_e^2)$ and the growth rate $r > 0$, and the expected concentration at time $t$ under this model is $\mathbb{E} \left[ c^{(e)}_t \right] = c^{(e)}_{0} \exp(rt + \sigma_e^2/2)$.
+
 ```{r}
 n_baseline_paths <- 8
 ```
 
-To show how this behaviour looks, let's simulate `r n_baseline_paths` baseline paths.
+To show how this behaviour looks, let's simulate `r n_baseline_paths` samples from both the baseline and exponential regimes:
 
 ```{r}
 baseline_df <- data.frame(
   day = rep(1:time_window, times = n_baseline_paths), 
   epsilon = rnorm(time_window * n_baseline_paths),
-  path_number = as.factor(rep(1:n_baseline_paths, each = time_window))
+  id = as.factor(rep(1:n_baseline_paths, each = time_window)),
+  regime = "Baseline"
   ) %>%
-  group_by(path_number) %>%
-  arrange(path_number) %>%
+  group_by(id) %>%
+  arrange(id) %>%
   mutate(
     x = cumsum(epsilon),
     conc = baseline * exp(x)
   ) %>%
   ungroup()
+
+exponential_df <- data.frame(
+  day = rep(1:time_window, times = n_baseline_paths), 
+  epsilon = rnorm(time_window * n_baseline_paths, mean = r),
+  id = as.factor(rep(1:n_baseline_paths, each = time_window)),
+  regime = "Exponential"
+  ) %>%
+  group_by(id) %>%
+  arrange(id) %>%
+  mutate(
+    x = cumsum(epsilon),
+    conc = baseline * exp(x)
+  ) %>%
+  ungroup()
+
+df <- bind_rows(exponential_df, baseline_df)
 
 time_series_plot <- function(df, title) {
   df %>%
@@ -266,44 +289,19 @@ time_series_plot <- function(df, title) {
         "x" = "x",
         "conc" = "Concentration")
     ) %>%
-    ggplot(aes(x = day, y = value, group = path_number, col = path_number)) +
+    ggplot(aes(x = day, y = value, group = id, col = regime)) +
       geom_line() +
-      facet_wrap(~variable, ncol = 1, scales = "free") +
+      facet_wrap(variable ~ regime, scales = "free", ncol = 2) +
       scale_colour_manual(values = cbpalette) +
       theme_minimal() +
-      labs(x = "Day", y = "", col = "Path number", title = title)
+      guides(col = "none") +
+      labs(x = "Day", y = "", title = title)
 }
 
-time_series_plot(baseline_df, "Baseline lognormal geometric random walk behaviour")
+time_series_plot(df, "Lognormal geometric random walk")
 ```
-
 The key takeaway here about the lognormal geometric random walk model is that even though the noise is IID and Gaussian, when you take the cumulative sum and exponentiate it can lead to large deviations in concentration, which follows from the variance of a random walk increasing linearly in time.
-The maximum concentration value observed was `r max(baseline_df$conc)` -- which is `r max(baseline_df$conc) / baseline` greater than the baseline concentration.
-
-For the exponential regime, we could also suppose a geometric lognormal random walk
-$$
-c^{(e)}_t = c^{(e)}_{t - 1} \times \exp \left( \epsilon^{(e)}_t \right)
-$$
-where $\epsilon^{(e)}_t \sim \mathcal{N}(r, \sigma_e^2)$ and the growth rate $r > 0$, and the expected concentration at time $t$ under this model is $\mathbb{E} \left[ c^{(e)}_t \right] = c^{(e)}_{0} \exp(rt + \sigma_e^2/2)$.
-
-Let's simulate some paths from this distribution as before.
-
-```{r}
-exponential_df <- data.frame(
-  day = rep(1:time_window, times = n_baseline_paths), 
-  epsilon = rnorm(time_window * n_baseline_paths, mean = r),
-  path_number = as.factor(rep(1:n_baseline_paths, each = time_window))
-  ) %>%
-  group_by(path_number) %>%
-  arrange(path_number) %>%
-  mutate(
-    x = cumsum(epsilon),
-    conc = baseline * exp(x)
-  ) %>%
-  ungroup()
-
-time_series_plot(exponential_df, "Exponential lognormal geometric random walk behaviour")
-```
+The maximum concentration value under the baseline regime observed was `r max(baseline_df$conc)` -- which is `r max(baseline_df$conc) / baseline` greater than the baseline concentration.
 
 ### Lognormal geometric auto-regressive process
 
@@ -316,20 +314,23 @@ $$
 where the lag-one correlation parameter $\rho \in (0, 1)$ determines the extent of autocorrelation, and $\epsilon^{(b)}_t \sim \mathcal{N}(0, 1)$ as before.
 
 ```{r}
-baseline_df <- data.frame(
+baseline_ar_df <- data.frame(
   day = rep(1:time_window, times = n_baseline_paths), 
   epsilon = rnorm(time_window * n_baseline_paths),
-  path_number = as.factor(rep(1:n_baseline_paths, each = time_window))
+  id = as.factor(rep(1:n_baseline_paths, each = time_window)),
+  regime = "Baseline"
   ) %>%
-  group_by(path_number) %>%
-  arrange(path_number) %>%
+  group_by(id) %>%
+  arrange(id) %>%
   mutate(
     x = stats::arima.sim(model = list(order = c(1, 0, 0), ar = 0.75), n = time_window, innov = epsilon),
     conc = baseline * exp(x)
   ) %>%
   ungroup()
 
-time_series_plot(baseline_df, "Baseline lognormal geometric auto-regressive behaviour")
+df_ar <- bind_rows(exponential_df, baseline_ar_df)
+
+time_series_plot(df_ar, "Lognormal geometric auto-regressive behaviour for the baseline")
 ```
 
 ## Sequencing observation models
