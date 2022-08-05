@@ -1,0 +1,30 @@
+script: script.R
+
+artefacts:
+  - data:
+      description: Plot output
+      filenames:
+        - data-sample0.pdf
+        - fits-sample0.pdf
+  - data:
+      description: Inference output
+      filenames:
+        - fits-sample0.rds
+  - data:
+      description: Inference output
+      filenames:
+        - benchmark-sample0.rds
+
+packages:
+  - dplyr
+  - ggplot2
+  - rstan
+  - stringr
+  - tidyr
+  - bench
+
+depends:
+  sim_metagenomic-time-series:
+    id: latest
+    use:
+      depends/sample0.rds: sample0.rds
