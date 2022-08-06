@@ -28,19 +28,36 @@ fits <- tibble(id = unique(df$id)) %>%
   ) %>%
   unnest(fit)
 
-pdf("fits-sample0.pdf", h = 4, w = 6.25)
-
-fits %>%
+#' Add truth column
+fits <- fits %>%
   left_join(
     select(df, id, regime),
     by = "id"
-  ) %>%
+  )
+
+pdf("fits-sample0.pdf", h = 5, w = 6.25)
+
+fits %>%
   filter(term == "day") %>%
-  ggplot(aes(x = id, y = estimate, col = regime)) +
-    geom_point(alpha = 0.5) +
+  ggplot(aes(x = id, y = estimate, ymin = conf.low, ymax = conf.high, col = regime)) +
+    geom_pointrange(alpha = 0.5, size = 0.5) +
     theme_minimal() +
     scale_color_manual(values = cbpalette) +
-    labs(x = "k-mer ID", y = "Slope point estimate", col = "Regime")
+    labs(x = "k-mer ID", y = "Slope point estimate", col = "Regime") +
+    theme(
+      legend.position = "bottom"
+    )
+
+fits %>%
+  filter(term == "day") %>%
+  ggplot(aes(x = id, y = p.value, col = regime)) +
+  geom_point() +
+  theme_minimal() +
+  scale_color_manual(values = cbpalette) +
+  labs(x = "k-mer ID", y = "p-value for positive slope", col = "Regime") +
+  theme(
+    legend.position = "bottom"
+  )
 
 dev.off()
 
