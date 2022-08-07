@@ -1,0 +1,112 @@
+---
+title: "Exponential growth detection on metagenomic data"
+author:
+- name: Adam Howes
+output:
+  html_document:
+    toc: yes
+    df_print: paged
+    code_folding: hide
+abstract: |
+    **Background** 
+    
+    **Task** 
+    
+    **Findings** 
+    
+    **Next steps** 
+---
+
+```{r setup, class.source = 'fold-hide'}
+knitr::opts_chunk$set(
+  echo = TRUE,
+  cache = TRUE,
+  autodep = TRUE,
+  cache.comments = FALSE
+)
+
+options(scipen = 999)
+
+cbpalette <- multi.utils::cbpalette()
+```
+
+## First simulated example
+
+We start by importing the data generated in the notebook [Simulating metagenomic time series data](https://athowes.github.io/exp-growth/metagenomic-time-series).
+
+```{r}
+df <- readRDS("depends/sample0.rds") %>%
+  as_tibble()
+```
+
+This data looks as follows:
+
+```{r}
+df %>%
+  ggplot(aes(x = day, y = count, col = regime, group = id)) +
+  geom_line(alpha = 0.1) +
+  theme_minimal() +
+  scale_color_manual(values = cbpalette) +
+  labs(x = "Day", y = "Count", col = "Regime")
+```
+
+We fit a Poisson regression model (see [Explaining Poisson regression](https://athowes.github.io/exp-growth/explain-poisson) or [Estimating exponential growth via sporadic detection](https://athowes.github.io/exp-growth/exponential-detection)) to each $k$-mer in the data:
+
+```{r}
+#' Fit to each unique id
+#' Note that (confusingly) kmer is not unique, and represents the kmer within a given organism
+fits <- tibble(id = unique(df$id)) %>%
+  mutate(
+    fit = map(id, ~glm(count ~ 1 + day, family = "poisson", data = filter(df, id == .))),
+    fit = map(fit, broom::tidy, conf.int = TRUE)
+  ) %>%
+  unnest(fit)
+
+#' Add truth column
+fits <- fits %>%
+  left_join(
+    select(df, id, regime),
+    by = "id"
+  )
+```
+
+Now we can look at the inference for the slope parameter $\beta$ in each regression, first the point estimate with confidence interval, then the $p$-value for $\beta > 0$ (which we take as a simple method for detecting exponential growth).
+The truth (exponential or baseline regime) is shown by colour.
+
+```{r}
+fits %>%
+  filter(term == "day") %>%
+  ggplot(aes(x = id, y = estimate, ymin = conf.low, ymax = conf.high, col = regime)) +
+    geom_pointrange(alpha = 0.5, size = 0.5) +
+    theme_minimal() +
+    scale_color_manual(values = cbpalette) +
+    labs(x = "k-mer ID", y = "Slope point estimate", col = "Regime") +
+    theme(
+      legend.position = "bottom"
+    )
+
+fits %>%
+  filter(term == "day") %>%
+  ggplot(aes(x = id, y = p.value, col = regime)) +
+  geom_point() +
+  theme_minimal() +
+  scale_color_manual(values = cbpalette) +
+  labs(x = "k-mer ID", y = "p-value for positive slope", col = "Regime") +
+  theme(
+    legend.position = "bottom"
+  )
+
+saveRDS(fits, "fits-sample0.rds")
+```
+
+We can benchmark how long the Poisson regression model takes to fit using the function `bench::mark`:
+
+```{r}
+bm <- bench::mark(
+  glm(count ~ 1 + day, family = "poisson", data = filter(df, id == 1))
+)
+
+bm
+
+saveRDS(bm, "benchmark-sample0.rds")
+```

@@ -2,10 +2,9 @@ script: script.R
 
 artefacts:
   - data:
-      description: Plot output
+      description: Exponential growth detection on metagenomic data
       filenames:
-        - data-sample0.pdf
-        - fits-sample0.pdf
+        - egd-metagenomic.html
   - data:
       description: Inference output
       filenames:
@@ -15,6 +14,9 @@ artefacts:
       filenames:
         - benchmark-sample0.rds
 
+resources:
+  - egd-metagenomic.Rmd
+
 packages:
   - dplyr
   - ggplot2
@@ -22,6 +24,7 @@ packages:
   - stringr
   - tidyr
   - bench
+  - purrr
 
 depends:
   sim_metagenomic-time-series:
