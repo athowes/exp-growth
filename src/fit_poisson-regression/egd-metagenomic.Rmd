@@ -28,6 +28,8 @@ knitr::opts_chunk$set(
 options(scipen = 999)
 
 cbpalette <- multi.utils::cbpalette()
+
+library(tidyverse)
 ```
 
 ## First simulated example
@@ -39,18 +41,30 @@ df <- readRDS("depends/sample0.rds") %>%
   as_tibble()
 ```
 
-This data looks as follows:
+This data looks as follows.
 
 ```{r}
-df %>%
-  ggplot(aes(x = day, y = count, col = regime, group = id)) +
-  geom_line(alpha = 0.1) +
-  theme_minimal() +
-  scale_color_manual(values = cbpalette) +
-  labs(x = "Day", y = "Count", col = "Regime")
+sample_summary <- df %>%
+  group_by(day, regime) %>%
+  summarise(
+    count_upper = quantile(count, 0.95),
+    count_median = median(count),
+    count_lower = quantile(count, 0.05)
+  )
+
+ggplot(sample_summary, aes(x = day, ymin = count_lower, y = count_median, ymax = count_upper, group = regime)) +
+    geom_ribbon(alpha = 0.1, aes(fill = regime)) +
+    geom_line(aes(col = regime), size = 1.5) +
+    geom_line(data = df, aes(x = day, y = count, col = regime, group = id),
+               alpha = 0.025, inherit.aes = FALSE) + 
+    theme_minimal() +
+    scale_color_manual(values = cbpalette) +
+    scale_fill_manual(values = cbpalette) +
+    guides(fill = "none") +
+    labs(x = "Day", y = "Number of reads in sample", col = "Regime")
 ```
 
-We fit a Poisson regression model (see [Explaining Poisson regression](https://athowes.github.io/exp-growth/explain-poisson) or [Estimating exponential growth via sporadic detection](https://athowes.github.io/exp-growth/exponential-detection)) to each $k$-mer in the data:
+We fit a Poisson regression model (see [Explaining Poisson regression](https://athowes.github.io/exp-growth/explain-poisson) or [Estimating exponential growth via sporadic detection](https://athowes.github.io/exp-growth/exponential-detection)) to each $k$-mer in the data.
 
 ```{r}
 #' Fit to each unique id
@@ -70,28 +84,28 @@ fits <- fits %>%
   )
 ```
 
-Now we can look at the inference for the slope parameter $\beta$ in each regression, first the point estimate with confidence interval, then the $p$-value for $\beta > 0$ (which we take as a simple method for detecting exponential growth).
-The truth (exponential or baseline regime) is shown by colour.
+Now we can look at the inference for the slope parameter $\beta$ in each regression, first the point estimate with confidence interval, then the $p$-value for $\beta \neq 0$.
+The truth -- either exponential or baseline regime -- is shown by the point colour.
 
 ```{r}
-fits %>%
-  filter(term == "day") %>%
+fits_day <- filter(fits, term == "day")
+
+fits_day %>%
   ggplot(aes(x = id, y = estimate, ymin = conf.low, ymax = conf.high, col = regime)) +
-    geom_pointrange(alpha = 0.5, size = 0.5) +
+    geom_pointrange(alpha = 0.05, size = 0.5) +
     theme_minimal() +
     scale_color_manual(values = cbpalette) +
-    labs(x = "k-mer ID", y = "Slope point estimate", col = "Regime") +
+    labs(x = "k-mer ID", y = "Estimated slope", col = "True regime") +
     theme(
       legend.position = "bottom"
     )
 
-fits %>%
-  filter(term == "day") %>%
+fits_day %>%
   ggplot(aes(x = id, y = p.value, col = regime)) +
   geom_point() +
   theme_minimal() +
   scale_color_manual(values = cbpalette) +
-  labs(x = "k-mer ID", y = "p-value for positive slope", col = "Regime") +
+  labs(x = "k-mer ID", y = "p-value for positive slope", col = "True regime") +
   theme(
     legend.position = "bottom"
   )
@@ -99,14 +113,88 @@ fits %>%
 saveRDS(fits, "fits-sample0.rds")
 ```
 
+Suppose we classify as exponential growth when the 95% confidence interval for $\beta$ is above zero.
+We can see which $k$-mers we misclassify by comparing this estimated regime to the true regime.
+
+```{r}
+fits_day <- fits_day %>%
+  mutate(
+    est_regime = case_when(
+      conf.low > 0 & conf.high > 0 ~ "Exponential",
+      TRUE ~ "Baseline"
+    ),
+    correct = case_when(
+      regime == est_regime ~ TRUE,
+      TRUE ~ FALSE
+    )
+  )
+
+fits_day %>%
+  ggplot(aes(x = id, y = estimate, ymin = conf.low, ymax = conf.high, col = correct)) +
+    geom_pointrange(alpha = 0.05, size = 0.5) +
+    theme_minimal() +
+    scale_color_manual(values = c("#D22B2B", "grey")) +
+    labs(x = "k-mer ID", y = "Estimated slope", col = "True regime") +
+    theme(
+      legend.position = "bottom"
+    )
+
+fits_day %>%
+  ggplot(aes(x = id, y = p.value, col = correct)) +
+  geom_point() +
+  theme_minimal() +
+    scale_color_manual(values = c("#D22B2B", "grey")) +
+  labs(x = "k-mer ID", y = "p-value for positive slope", col = "True regime") +
+  theme(
+    legend.position = "bottom"
+  )
+```
+
+All of the $k$-mers which are exponentially increasing are classified as such.
+In other words, the false negative rate is zero.
+There are a small number of false positives: $k$-mers in the baseline regime which are classified as exponentially increasing.
+
+```{r}
+fits_day <- fits_day %>%
+  mutate(
+    cm = case_when(
+      regime == "Exponential" & est_regime == "Exponential" ~ "True positive",
+      regime == "Exponential" & est_regime == "Baseline" ~ "False negative",
+      regime == "Baseline" & est_regime == "Exponential" ~ "False positive",
+      regime == "Baseline" & est_regime == "Baseline" ~ "True negative"
+    )
+  )
+
+fits_day %>%
+  janitor::tabyl(cm) %>%
+  knitr::kable()
+```
+
+We can highlight these few false positives in a plot.
+
+```{r}
+df %>%
+  left_join(
+    select(fits_day, id, correct, cm),
+    by = "id"
+  ) %>%
+  ggplot(aes(x = day, y = count, col = correct, alpha = correct, group = id)) +
+    geom_line() + 
+    theme_minimal() +
+    scale_alpha_manual(values = c(1, 0.05)) +
+    scale_color_manual(values = c("#D22B2B", "grey")) +
+    guides(alpha = "none") + 
+    labs(x = "Day", y = "Number of reads in sample", col = "Correctly classified?")
+```
+
+## Benchmarking
+
 We can benchmark how long the Poisson regression model takes to fit using the function `bench::mark`:
 
 ```{r}
 bm <- bench::mark(
   glm(count ~ 1 + day, family = "poisson", data = filter(df, id == 1))
 )
-
-bm
 
 saveRDS(bm, "benchmark-sample0.rds")
 ```
