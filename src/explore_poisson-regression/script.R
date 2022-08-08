@@ -4,3 +4,4 @@
 rmarkdown::render("poisson-regression-theory.Rmd")
 rmarkdown::render("exponential-detection.Rmd")
 rmarkdown::render("explain-poisson.Rmd")
+rmarkdown::render("jeff-heuristic.Rmd")

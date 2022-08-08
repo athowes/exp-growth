@@ -7,6 +7,7 @@ artefacts:
         - poisson-regression-theory.html
         - exponential-detection.html
         - explain-poisson.html
+        - jeff-heuristic.html
 
 packages:
   - tidyverse
@@ -15,3 +16,4 @@ resources:
   - poisson-regression-theory.Rmd
   - exponential-detection.Rmd
   - explain-poisson.Rmd
+  - jeff-heuristic.Rmd

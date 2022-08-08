@@ -1,0 +1,51 @@
+---
+title: "Jeff's heuristic"
+author: "Adam Howes"
+date: "2022-08-03"
+output: html_document
+---
+
+**Status:** Very shallow exploration of suggested quick heuristic.
+
+## Example on simulated exponential data
+
+```{r}
+base <- 2
+time_period <- 14
+
+y <- base^{1:time_period}
+plot(y)
+
+log_y <- log(y)
+plot(log_y)
+
+y_prop <- y / 10^6
+plot(log(y_prop))
+
+diff(log_y)
+```
+
+The increments at each time-step are $\log(b)$ since
+$$
+\log(b^t) - \log(b^{t + 1}) = t\log(b) - (t + 1)\log(b) = \log(b).
+$$
+
+## Example on real data
+
+```{r}
+ts <- c(
+  3/308259878, 6/428248420, 1/419143935, 4/382434053, 25/409326241, 8/336993186, 
+  6/339782463, 10/393575246, 3/404306425, 2/331453869, 8/443570791, 2/358994390, 
+  6/545294572, 15/352576173, 6/298166012, 19/493418258, 18/233816053
+)
+
+plot(ts)
+plot(log(ts))
+
+log_diff <- diff(log(ts))
+log_diff
+
+mean(log_diff)
+
+sqrt(sum((log_diff - mean(log_diff))^2))
+```
