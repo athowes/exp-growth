@@ -373,6 +373,31 @@ dirichlet_draw <- gtools::rdirichlet(n = 1, alpha = K_norm[1, ])
 <!-- 2. The model displays over-dispersion as compared with a Poisson model where the variance is the same as the mean, because of the latent noise. (I'm still interested as to how this is different from e.g. a negative-binomial model, though I prefer to use random effects for noise as they are easier to modify and extend to include structure say [amongst other reasons] than likelihoods). -->
 <!-- 3. "Faithful correlation" in that the correlation and covariance have the same sign. As well, if $\sigma_{jk} = 0$ then $\mathbb{Cov}(Y_{ij}, Y_{ik}) = 0$. -->
 
+## Methods for improving simulation accuracy
+
+**Time status** $2 \times 25\text{ min}$ 
+
+How could we go about making the simulations more realistic?
+
+The realism of a given model can be divided into structural realism and parametric realism^[This distinction is somewhat arbitrary, in that there may be no clear distinction between structural and parameteric realism, but may still be useful.
+For example some distributions are general enough to admit other distributions as special cases when certain parameter versions are chosen e.g. the Gaussian might (perhaps unhelpfully) be thought of as a special case of the Student-t as the degrees of freedom tends to infinity.].
+Structural realism refers to the distributional assumptions made.
+Parametric realism refers to the specific (hyper-)parameter values chosen for the assumed distributions.
+
+Realism can be assessed by (1) simulating data from the generative model we propose, (2) plotting and summarising the simulated data, possibly using dimension reduction techniques (3) comparing to real data, or our intuitions and expectations of it.
+The final stage requires developing a good understanding of the real data, or even better closely collaborating with domain scientists who have this understanding.
+Aside from allowing us to create more accurate simulations, developing a good understanding of the data we hope to model is a worthy goal in itself.
+I'm imagining an iterative process where we simulate data, ask scientist if it looks good, write down what they say, try to improve it, etc.
+
+One method for improving parametric realism is to obtain real data, then fit a model to the real data to obtain posteriors over parameters of interest.
+We could then use posterior predictive samples drawn from the model as our simulations.
+In this setting, we may want to widen the posterior somewhat, as the sample of real data we obtain is unlikely to be representative of all real data we might encounter.
+
+Structural realism may be improved by noticing stylistic features of the real data which the simulated data does not possess.
+These features might include shapes of distributions, tail heaviness, skewness, sources and structure of variation, sources and structure of biases, presence of outliers or multi-modalities etc.
+
+For further reading on this, I would suggest the preprint (and upcoming book) [Bayesian workflow](https://arxiv.org/pdf/2011.01808.pdf) by Gelman et al.
+
 ## Futher potentially useful links
 
 * [Trying to generalise the dirichlet-multinomial (non-analytical) framework (replacing Dirichlet with other distributions)](https://discourse.mc-stan.org/t/trying-to-generalise-the-dirichlet-multinomial-non-analytical-framework-replacing-dirichlet-with-other-distributions/6117)
