@@ -64,6 +64,8 @@ ggplot(sample_summary, aes(x = day, ymin = count_lower, y = count_median, ymax =
     labs(x = "Day", y = "Number of reads in sample", col = "Regime")
 ```
 
+### Performing inference
+
 We fit a Poisson regression model (see [Explaining Poisson regression](https://athowes.github.io/exp-growth/explain-poisson) or [Estimating exponential growth via sporadic detection](https://athowes.github.io/exp-growth/exponential-detection)) to each $k$-mer in the data.
 
 ```{r}
@@ -112,6 +114,8 @@ fits_day %>%
 
 saveRDS(fits, "fits-sample0.rds")
 ```
+
+### Performance assessment
 
 Suppose we classify as exponential growth when the 95% confidence interval for $\beta$ is above zero.
 We can see which $k$-mers we misclassify by comparing this estimated regime to the true regime.
@@ -187,7 +191,15 @@ df %>%
     labs(x = "Day", y = "Number of reads in sample", col = "Correctly classified?")
 ```
 
-## Benchmarking
+TODO: Compute classification probabilities.
+
+The Brier score (see [Evaluating exponential growth detection](https://docs.google.com/document/d/1wSi6RknvA91mEB7gY8icdcUPHP7kEObhdwXDb5D9FAY/edit)) is given by
+$$
+\text{BS} = \frac{1}{n} \sum_{i = 1}^n \left(f_i - o_i \right)^2
+$$
+where $f_i$ is $\mathbb{P} \left[ \text{regime}(i) = 1 \right]$ and $o_i = \text{regime}(i) \in \{0, 1\}$.
+
+### Benchmarking
 
 We can benchmark how long the Poisson regression model takes to fit using the function `bench::mark`:
 
@@ -196,5 +208,84 @@ bm <- bench::mark(
   glm(count ~ 1 + day, family = "poisson", data = filter(df, id == 1))
 )
 
+data_subset <- filter(df, id == 1)
+
+bm2 <- bench::mark(
+  glm(count ~ 1 + day, family = "poisson", data = data_subset)
+) %>%
+  print()
+
+bm
+bm2
+
 saveRDS(bm, "benchmark-sample0.rds")
 ```
+
+## With additional true abundance noise
+
+```{r}
+df <- readRDS("depends/sample1.rds") %>%
+  as_tibble()
+```
+
+## Real data
+
+```{r, class.source = 'fold-show'}
+counts <- read.table("data/counts-1pct-sample.tsv", header = TRUE)
+
+summary(counts)
+
+#' There are this many k-mers in the data
+nrow(counts)
+
+#' These are the column names for counts
+names(counts)
+
+#' This is what the top part of the data looks like
+head(counts)
+
+counts_subset <- filter(counts, ec < 1000)
+
+#' In a tidy format for plotting and fitting
+counts_subset_long <- counts_subset %>%
+  pivot_longer(
+    cols = starts_with("day"),
+    names_to = "day",
+    names_prefix = "day",
+    values_to = "count"
+  ) %>%
+  mutate(day = as.integer(day))
+
+#' Plot the time series
+ggplot(counts_subset_long, aes(x = day, y = count, group = ec)) +
+  geom_line(alpha = 0.05) +
+  theme_minimal() +
+  labs(x = "Day", y = "Count")
+
+#' There is also a file which I assume is the total reads
+row_sums <- read.table("data/daily-counts.tsv", header = TRUE)
+row_sums
+
+counts_subset_long
+
+#' Time per million ECs might be a useful format for benchmarking
+#' Time for each of the different subsets
+#' 
+#' ?glm to check what the possible input formats are
+#' Benchmarking the different steps (including pivot_longer)
+#' Use data.table to do the pivot
+#' 
+#' Create egd.R that Jeff would source
+#' Benchmark aspects of egd.R and try to improve the slowest running parts
+#' pivoting (and other aspects) might not be linear
+#' How does pivoting scale with size
+#' 
+#' 1. Create egd.R
+#' 2. Identify steps to benchmark e.g. using profiling
+#' 
+#' Look at different aspects (modules) of the simulation (to have technical replicates)
+#' Datasets that have that are not going to be wastewater
+#' Dirichlet Multinomial maybe not as good
+```
+
+
