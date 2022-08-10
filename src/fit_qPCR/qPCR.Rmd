@@ -5,7 +5,11 @@ bibliography: citations.bib
 output:
   html_document:
     toc: yes
+    toc_float: true
+    toc_collapsed: true
     df_print: paged
+    code_folding: hide
+    theme: lumen
 abstract: |
   The purpose of this document is to specify a generative model for qPCR data which captures
   a realistic data generating process sufficiently to outperform the "standard curve" simple

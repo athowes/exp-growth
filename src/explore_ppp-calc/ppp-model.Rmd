@@ -5,8 +5,12 @@ author:
   - Adam Howes
 output:
   html_document:
+    toc: yes
+    toc_float: true
+    toc_collapsed: true
     df_print: paged
-  pdf_document: default
+    code_folding: hide
+    theme: lumen
 ---
 
 ## Basic set-up

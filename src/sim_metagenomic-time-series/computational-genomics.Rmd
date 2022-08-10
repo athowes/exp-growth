@@ -1,7 +1,14 @@
 ---
 title: "Computational genomics"
 author: "Adam Howes"
-output: html_document
+output:
+  html_document:
+    toc: yes
+    toc_float: true
+    toc_collapsed: true
+    df_print: paged
+    code_folding: hide
+    theme: lumen
 ---
 
 ## Central dogma

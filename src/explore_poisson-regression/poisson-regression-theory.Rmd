@@ -4,6 +4,14 @@ description: |
 author:
   - name: Michael R. McLaren
   - name: Adam Howes
+output:
+  html_document:
+    toc: yes
+    toc_float: true
+    toc_collapsed: true
+    df_print: paged
+    code_folding: hide
+    theme: lumen
 ---
 
 * https://web.stanford.edu/class/archive/stats/stats200/stats200.1172/Lecture27.pdf

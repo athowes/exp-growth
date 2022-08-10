@@ -1,8 +1,14 @@
 ---
 title: "Jeff's heuristic"
 author: "Adam Howes"
-date: "2022-08-03"
-output: html_document
+output:
+  html_document:
+    toc: yes
+    toc_float: true
+    toc_collapsed: true
+    df_print: paged
+    code_folding: hide
+    theme: lumen
 ---
 
 **Status:** Very shallow exploration of suggested quick heuristic.

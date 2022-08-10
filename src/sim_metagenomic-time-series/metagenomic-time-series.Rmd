@@ -5,8 +5,11 @@ bibliography: citations.bib
 output:
   html_document:
     toc: yes
+    toc_float: true
+    toc_collapsed: true
     df_print: paged
     code_folding: hide
+    theme: lumen
 abstract: |
     **Background** Rigorously benchmarking methods for exponential growth detection requires metagenomic datasets where the ground truth is known. Simulation is a flexible tool which could meet this need by enabling generation of datasets from known data generating processes. Thinking through how one might realistically simulate data is a furthermore a useful step in building understanding of the real data.
     
@@ -196,7 +199,7 @@ reads_plot <- function(df) {
     geom_ribbon(alpha = 0.1, aes(fill = regime)) +
     geom_line(aes(col = regime), size = 1.5) +
     geom_line(data = df, aes(x = day, y = count, col = regime, group = id),
-               alpha = 0.025, inherit.aes = FALSE) + 
+               alpha = 0.05, inherit.aes = FALSE) + 
     theme_minimal() +
     scale_color_manual(values = cbpalette) +
     scale_fill_manual(values = cbpalette) +

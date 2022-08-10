@@ -6,8 +6,11 @@ author:
 output:
   html_document:
     toc: yes
+    toc_float: true
+    toc_collapsed: true
     df_print: paged
     code_folding: hide
+    theme: lumen
 abstract: |
     **Background** Detecting exponential growth is a central goal of the Nucleic Acid Observatory (NAO). Regression using a Poisson generalised linear model (GLM) is possibly the simplest statistical approach to detecting exponential growth.
     
