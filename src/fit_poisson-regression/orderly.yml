@@ -5,6 +5,7 @@ artefacts:
       description: Exponential growth detection on metagenomic data
       filenames:
         - egd-metagenomic.html
+        - egd-benchmark.html
   - data:
       description: Inference output
       filenames:
@@ -16,6 +17,8 @@ artefacts:
 
 resources:
   - egd-metagenomic.Rmd
+  - egd-benchmark.Rmd
+  - data/
 
 packages:
   - dplyr
@@ -31,3 +34,4 @@ depends:
     id: latest
     use:
       depends/sample0.rds: sample0.rds
+      depends/sample1.rds: sample1.rds

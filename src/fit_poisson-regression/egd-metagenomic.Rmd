@@ -5,8 +5,11 @@ author:
 output:
   html_document:
     toc: yes
+    toc_float: true
+    toc_collapsed: true
     df_print: paged
     code_folding: hide
+    theme: lumen
 abstract: |
     **Background** 
     
@@ -265,27 +268,21 @@ ggplot(counts_subset_long, aes(x = day, y = count, group = ec)) +
 #' There is also a file which I assume is the total reads
 row_sums <- read.table("data/daily-counts.tsv", header = TRUE)
 row_sums
-
-counts_subset_long
-
-#' Time per million ECs might be a useful format for benchmarking
-#' Time for each of the different subsets
-#' 
-#' ?glm to check what the possible input formats are
-#' Benchmarking the different steps (including pivot_longer)
-#' Use data.table to do the pivot
-#' 
-#' Create egd.R that Jeff would source
-#' Benchmark aspects of egd.R and try to improve the slowest running parts
-#' pivoting (and other aspects) might not be linear
-#' How does pivoting scale with size
-#' 
-#' 1. Create egd.R
-#' 2. Identify steps to benchmark e.g. using profiling
-#' 
-#' Look at different aspects (modules) of the simulation (to have technical replicates)
-#' Datasets that have that are not going to be wastewater
-#' Dirichlet Multinomial maybe not as good
 ```
+## Notes from meeting with Mike
 
+Time per e.g. million ECs might be a useful format for benchmarking.
+Time for each of the different subsets.
 
+?glm to check what the possible input formats are.
+Benchmarking the different steps (including pivot_longer).
+Use data.table to do the pivot.
+
+Create `egd.R` that Jeff would source.
+Benchmark aspects of egd.R and try to improve the slowest running parts.
+Pivoting (and other aspects) might not be linear.
+How does pivoting scale with size?
+
+Look at different aspects (modules) of the simulation (to have technical replicates).
+Datasets that have that are not going to be wastewater (but we can also run experiments).
+Dirichlet Multinomial maybe not as good.

@@ -1,5 +1,6 @@
 ## Exponential growth detection
 
+* [egd-benchmark](https://athowes.github.io/exp-growth/egd-benchmark)
 * [egd-metagenomic](https://athowes.github.io/exp-growth/egd-metagenomic)
 * [exponential-detection](https://athowes.github.io/exp-growth/exponential-detection)
 * [jeff-heuristic](https://athowes.github.io/exp-growth/jeff-heuristic)
