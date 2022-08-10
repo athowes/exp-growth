@@ -1,0 +1,92 @@
+---
+title: "Benchmarking Poisson regression for exponential growth detection"
+author:
+- name: Adam Howes
+output:
+  html_document:
+    toc: yes
+    toc_float: true
+    toc_collapsed: true
+    df_print: paged
+    code_folding: hide
+    theme: lumen
+abstract: |
+    **Background** Poisson regression is a candidate method for exponential growth detection. The number of k-mers a realistic Nucleic Acid Observatory would process is large. For this reason, it's important that any candidate methods are assessed for their computational feasibility at scale.
+    
+    **Task** We will write an R script for performing Poisson regression exponential growth detection on real data. Using code profling and benchmarking tools, we will iterate on the code to improve its computational performance. For the final code, we will produce a summary of the runtime for each line. We will repeat the runtime analysis for varying total numbers of k-mers.
+    
+    **Findings** 
+    
+    **Next steps**
+---
+
+```{r setup, class.source = 'fold-hide'}
+knitr::opts_chunk$set(
+  echo = TRUE,
+  cache = TRUE,
+  autodep = TRUE,
+  cache.comments = FALSE
+)
+
+options(scipen = 999)
+
+cbpalette <- multi.utils::cbpalette()
+
+library(tidyverse)
+```
+
+## Resources which might be useful
+
+* [23 Measuring performance, Advanced R](https://adv-r.hadley.nz/perf-measure.html)
+* [25 Many models, R for Data Science](https://r4ds.had.co.nz/many-models.html)
+* [Whassup with `glm()`?, Gelman](https://statmodeling.stat.columbia.edu/2011/05/04/whassup_with_gl/)
+
+## Data
+
+The data we use for this task is:
+
+```{r}
+counts <- read.table("data/counts-1pct-sample.tsv", header = TRUE)
+subset_length <- 1000
+subset_counts <- head(counts, n = subset_length)
+head(subset_counts)
+```
+For development of the initial script, we subset the counts data, which has `r nrow(counts)` rows, to just the first `r subset_length` rows.
+
+## Developing an initial script
+
+To begin with, we will use `tidyr::pivot_longer` and `stats::glm`.
+We would like to end up with a function `f` which we can input into `profvis::profvis`.
+
+```{r}
+f <- function() {
+  profvis::pause(0.1)
+  print("Profile me!")
+}
+
+profvis::profvis(f())
+```
+
+```{r}
+df <- subset_counts
+
+df_long <- df %>%
+  pivot_longer(
+    cols = starts_with("day"),
+    names_to = "day",
+    names_prefix = "day",
+    values_to = "count",
+    names_transform = list(count = as.integer, day = as.integer)
+  )
+
+fits <- tibble(ec = df$ec)
+
+possibly_glm <- possibly(.f = glm, otherwise = NULL)
+possibly_tidy <- possibly(.f = broom::tidy, otherwise = NULL)
+
+fits <- mutate(fits, fit = map(ec, ~possibly_glm(count ~ 1 + day, family = "poisson", data = filter(df_long, ec == .))))
+fits <- mutate(fits, fit = map(fit, possibly_tidy, conf.int = TRUE))
+fits <- unnest(fits, fit)
+
+head(fits)
+```

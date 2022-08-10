@@ -286,3 +286,23 @@ How does pivoting scale with size?
 Look at different aspects (modules) of the simulation (to have technical replicates).
 Datasets that have that are not going to be wastewater (but we can also run experiments).
 Dirichlet Multinomial maybe not as good.
+
+## Notes on feedback from Sam
+
+Status: short response, to integrate feedback into documents.
+
+### Major comments
+
+* More detail on expected sampling process would help: I assume this refers to the metagenomic sampling process, which I agree is a hole at the moment and something I'm looking to fill in further. For now, I just choose to use the a multinomial sample with number of reads as sample size as it seemed the simplest.
+* Some example data would be very useful to understand the process: I'm unsure exactly what "example data" refers to here, would it be real data or more examples of simulated data? Since there are examples of simulated data in there, I'd assume real data. I agree that we need to start looking at more real data (so far I've only looked at one example of real data).
+* Rationale for motivating complex simulation model then using Poisson regression: Expecting computation to be restrictive, so using the simplest possible inferential methods for the time being. If it's shown that we can afford more computation, and there are things that Poisson regression doesn't do well, then we could think about patching them up with something more sophisticated.
+
+### Minor comments
+
+* More context on expected processes happening in background: Agree that what has been done is quite abstract and not very linked to a particular scenario or case-study. Since I've been talking about making things realsitic, picking one case-study to focus in on and pick realistic values and settings for could be a good route.
+* 1/10 of simulated targets are positive: Yes this is likely too high, we don't want to be flagging 10% of things. This is easier than we expect in reality.
+* Constant baseline makes it easier: Agree, this is very easy as things go (you can just eyeball them all).
+* What about a structural time-series model with local trends: Yes that would be great. Not only, but it would also highlight a problem we're going to be running into (I assume) in that there will be naturally occuring exponential growth which is not a threat, so knowing exactly how to be dealing with that (or even how often it's the case) is important.
+* Maximum sample concentration: Not sure, but one thing is that we expect the sample concentration of the thing we want to detect to be much lower than everything else (which hasn't been captured well by these simulations).
+* Gaussian random walk creates large changes: Agree, I've found that draws from Gaussian growth rate with mean greater than zero (exponential regime) can be quite varied. Worth thinking about more.
+* Adjustments for prevalence and not incidence: Good point, I don't know. For now we're assuming that there will be an exponential signal in the $k$-mers, which I agree is probably proportional to prevalence more than incidence. I think it's an open question whether we need to be adjusting for this (which potentially more epidemiological modelling [Charlie / Janvi?] could help with)
