@@ -3119,20 +3119,20 @@ bm2 &lt;- bench::mark(
 ) %&gt;%
   print()</code></pre>
 <pre><code>## # A tibble: 1 × 13
-##   expression                                                        min   median `itr/sec` mem_alloc `gc/sec` n_itr  n_gc
-##   &lt;bch:expr&gt;                                                   &lt;bch:tm&gt; &lt;bch:tm&gt;     &lt;dbl&gt; &lt;bch:byt&gt;    &lt;dbl&gt; &lt;int&gt; &lt;dbl&gt;
-## 1 glm(count ~ 1 + day, family = &quot;poisson&quot;, data = data_subset)    726µs    774µs     1225.    4.86KB     2.07   593     1
-## # … with 5 more variables: total_time &lt;bch:tm&gt;, result &lt;list&gt;, memory &lt;list&gt;, time &lt;list&gt;, gc &lt;list&gt;</code></pre>
+##   expression                                                        min median `itr/sec` mem_alloc `gc/sec` n_itr
+##   &lt;bch:expr&gt;                                                   &lt;bch:tm&gt; &lt;bch:&gt;     &lt;dbl&gt; &lt;bch:byt&gt;    &lt;dbl&gt; &lt;int&gt;
+## 1 glm(count ~ 1 + day, family = &quot;poisson&quot;, data = data_subset)   1.01ms 1.23ms      576.    4.86KB        0   295
+## # … with 6 more variables: n_gc &lt;dbl&gt;, total_time &lt;bch:tm&gt;, result &lt;list&gt;, memory &lt;list&gt;, time &lt;list&gt;, gc &lt;list&gt;</code></pre>
 <pre class="r"><code>bm</code></pre>
 <pre><code>## # A tibble: 1 × 6
-##   expression                                                                min   median `itr/sec` mem_alloc `gc/sec`
-##   &lt;bch:expr&gt;                                                           &lt;bch:tm&gt; &lt;bch:tm&gt;     &lt;dbl&gt; &lt;bch:byt&gt;    &lt;dbl&gt;
-## 1 glm(count ~ 1 + day, family = &quot;poisson&quot;, data = filter(df, id == 1))   5.99ms   6.22ms      155.     274KB     4.42</code></pre>
+##   expression                                                              min median `itr/sec` mem_alloc `gc/sec`
+##   &lt;bch:expr&gt;                                                           &lt;bch:&gt; &lt;bch:&gt;     &lt;dbl&gt; &lt;bch:byt&gt;    &lt;dbl&gt;
+## 1 glm(count ~ 1 + day, family = &quot;poisson&quot;, data = filter(df, id == 1)) 8.34ms 10.5ms      96.0     274KB        0</code></pre>
 <pre class="r"><code>bm2</code></pre>
 <pre><code>## # A tibble: 1 × 6
 ##   expression                                                        min   median `itr/sec` mem_alloc `gc/sec`
 ##   &lt;bch:expr&gt;                                                   &lt;bch:tm&gt; &lt;bch:tm&gt;     &lt;dbl&gt; &lt;bch:byt&gt;    &lt;dbl&gt;
-## 1 glm(count ~ 1 + day, family = &quot;poisson&quot;, data = data_subset)    726µs    774µs     1225.    4.86KB     2.07</code></pre>
+## 1 glm(count ~ 1 + day, family = &quot;poisson&quot;, data = data_subset)   1.01ms   1.23ms      576.    4.86KB        0</code></pre>
 <pre class="r"><code>saveRDS(bm, &quot;benchmark-sample0.rds&quot;)</code></pre>
 </div>
 </div>
@@ -3146,34 +3146,41 @@ bm2 &lt;- bench::mark(
 <pre class="r fold-show"><code>counts &lt;- read.table(&quot;data/counts-1pct-sample.tsv&quot;, header = TRUE)
 
 summary(counts)</code></pre>
-<pre><code>##        ec              day0               day1                day2                day3                day4          
-##  Min.   :     0   Min.   :    0.00   Min.   :    0.000   Min.   :    0.000   Min.   :    0.000   Min.   :    0.000  
-##  1st Qu.:250000   1st Qu.:    1.00   1st Qu.:    1.000   1st Qu.:    1.000   1st Qu.:    1.000   1st Qu.:    1.000  
-##  Median :500000   Median :    2.00   Median :    3.000   Median :    2.000   Median :    2.000   Median :    2.000  
-##  Mean   :500000   Mean   :    2.97   Mean   :    4.143   Mean   :    4.052   Mean   :    3.701   Mean   :    3.951  
-##  3rd Qu.:749999   3rd Qu.:    4.00   3rd Qu.:    5.000   3rd Qu.:    5.000   3rd Qu.:    5.000   3rd Qu.:    5.000  
-##  Max.   :999999   Max.   :18166.00   Max.   :15648.000   Max.   :15726.000   Max.   :13494.000   Max.   :19843.000  
-##       day5               day6                day7                day8                day9               day10          
-##  Min.   :    0.00   Min.   :    0.000   Min.   :    0.000   Min.   :    0.000   Min.   :    0.000   Min.   :    0.000  
-##  1st Qu.:    1.00   1st Qu.:    1.000   1st Qu.:    1.000   1st Qu.:    1.000   1st Qu.:    1.000   1st Qu.:    1.000  
-##  Median :    2.00   Median :    2.000   Median :    2.000   Median :    2.000   Median :    2.000   Median :    3.000  
-##  Mean   :    3.25   Mean   :    3.284   Mean   :    3.803   Mean   :    3.908   Mean   :    3.199   Mean   :    4.293  
-##  3rd Qu.:    4.00   3rd Qu.:    4.000   3rd Qu.:    4.000   3rd Qu.:    5.000   3rd Qu.:    4.000   3rd Qu.:    5.000  
-##  Max.   :17471.00   Max.   :13571.000   Max.   :17873.000   Max.   :18258.000   Max.   :15092.000   Max.   :15555.000  
-##      day11               day12               day13               day14              day15               day16         
-##  Min.   :    0.000   Min.   :    0.000   Min.   :    0.000   Min.   :    0.00   Min.   :    0.000   Min.   :   0.000  
-##  1st Qu.:    1.000   1st Qu.:    2.000   1st Qu.:    1.000   1st Qu.:    1.00   1st Qu.:    1.000   1st Qu.:   0.000  
-##  Median :    2.000   Median :    3.000   Median :    2.000   Median :    2.00   Median :    3.000   Median :   1.000  
-##  Mean   :    3.472   Mean   :    5.277   Mean   :    3.411   Mean   :    2.88   Mean   :    4.766   Mean   :   2.266  
-##  3rd Qu.:    4.000   3rd Qu.:    6.000   3rd Qu.:    4.000   3rd Qu.:    3.00   3rd Qu.:    6.000   3rd Qu.:   3.000  
-##  Max.   :12785.000   Max.   :21143.000   Max.   :15335.000   Max.   :11376.00   Max.   :22879.000   Max.   :8451.000</code></pre>
+<pre><code>##        ec              day0               day1                day2                day3          
+##  Min.   :     0   Min.   :    0.00   Min.   :    0.000   Min.   :    0.000   Min.   :    0.000  
+##  1st Qu.:250000   1st Qu.:    1.00   1st Qu.:    1.000   1st Qu.:    1.000   1st Qu.:    1.000  
+##  Median :500000   Median :    2.00   Median :    3.000   Median :    2.000   Median :    2.000  
+##  Mean   :500000   Mean   :    2.97   Mean   :    4.143   Mean   :    4.052   Mean   :    3.701  
+##  3rd Qu.:749999   3rd Qu.:    4.00   3rd Qu.:    5.000   3rd Qu.:    5.000   3rd Qu.:    5.000  
+##  Max.   :999999   Max.   :18166.00   Max.   :15648.000   Max.   :15726.000   Max.   :13494.000  
+##       day4                day5               day6                day7                day8          
+##  Min.   :    0.000   Min.   :    0.00   Min.   :    0.000   Min.   :    0.000   Min.   :    0.000  
+##  1st Qu.:    1.000   1st Qu.:    1.00   1st Qu.:    1.000   1st Qu.:    1.000   1st Qu.:    1.000  
+##  Median :    2.000   Median :    2.00   Median :    2.000   Median :    2.000   Median :    2.000  
+##  Mean   :    3.951   Mean   :    3.25   Mean   :    3.284   Mean   :    3.803   Mean   :    3.908  
+##  3rd Qu.:    5.000   3rd Qu.:    4.00   3rd Qu.:    4.000   3rd Qu.:    4.000   3rd Qu.:    5.000  
+##  Max.   :19843.000   Max.   :17471.00   Max.   :13571.000   Max.   :17873.000   Max.   :18258.000  
+##       day9               day10               day11               day12               day13          
+##  Min.   :    0.000   Min.   :    0.000   Min.   :    0.000   Min.   :    0.000   Min.   :    0.000  
+##  1st Qu.:    1.000   1st Qu.:    1.000   1st Qu.:    1.000   1st Qu.:    2.000   1st Qu.:    1.000  
+##  Median :    2.000   Median :    3.000   Median :    2.000   Median :    3.000   Median :    2.000  
+##  Mean   :    3.199   Mean   :    4.293   Mean   :    3.472   Mean   :    5.277   Mean   :    3.411  
+##  3rd Qu.:    4.000   3rd Qu.:    5.000   3rd Qu.:    4.000   3rd Qu.:    6.000   3rd Qu.:    4.000  
+##  Max.   :15092.000   Max.   :15555.000   Max.   :12785.000   Max.   :21143.000   Max.   :15335.000  
+##      day14              day15               day16         
+##  Min.   :    0.00   Min.   :    0.000   Min.   :   0.000  
+##  1st Qu.:    1.00   1st Qu.:    1.000   1st Qu.:   0.000  
+##  Median :    2.00   Median :    3.000   Median :   1.000  
+##  Mean   :    2.88   Mean   :    4.766   Mean   :   2.266  
+##  3rd Qu.:    3.00   3rd Qu.:    6.000   3rd Qu.:   3.000  
+##  Max.   :11376.00   Max.   :22879.000   Max.   :8451.000</code></pre>
 <pre class="r fold-show"><code>#&#39; There are this many k-mers in the data
 nrow(counts)</code></pre>
 <pre><code>## [1] 1000000</code></pre>
 <pre class="r fold-show"><code>#&#39; These are the column names for counts
 names(counts)</code></pre>
-<pre><code>##  [1] &quot;ec&quot;    &quot;day0&quot;  &quot;day1&quot;  &quot;day2&quot;  &quot;day3&quot;  &quot;day4&quot;  &quot;day5&quot;  &quot;day6&quot;  &quot;day7&quot;  &quot;day8&quot;  &quot;day9&quot;  &quot;day10&quot; &quot;day11&quot; &quot;day12&quot; &quot;day13&quot;
-## [16] &quot;day14&quot; &quot;day15&quot; &quot;day16&quot;</code></pre>
+<pre><code>##  [1] &quot;ec&quot;    &quot;day0&quot;  &quot;day1&quot;  &quot;day2&quot;  &quot;day3&quot;  &quot;day4&quot;  &quot;day5&quot;  &quot;day6&quot;  &quot;day7&quot;  &quot;day8&quot;  &quot;day9&quot;  &quot;day10&quot; &quot;day11&quot;
+## [14] &quot;day12&quot; &quot;day13&quot; &quot;day14&quot; &quot;day15&quot; &quot;day16&quot;</code></pre>
 <pre class="r fold-show"><code>#&#39; This is what the top part of the data looks like
 head(counts)</code></pre>
 <div data-pagedtable="false">

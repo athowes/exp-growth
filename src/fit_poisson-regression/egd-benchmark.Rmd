@@ -25,6 +25,7 @@ knitr::opts_chunk$set(
   echo = TRUE,
   cache = TRUE,
   autodep = TRUE,
+  cache.lazy = FALSE,
   cache.comments = FALSE
 )
 
@@ -40,6 +41,7 @@ library(tidyverse)
 * [23 Measuring performance, Advanced R](https://adv-r.hadley.nz/perf-measure.html)
 * [25 Many models, R for Data Science](https://r4ds.had.co.nz/many-models.html)
 * [Whassup with `glm()`?, Gelman](https://statmodeling.stat.columbia.edu/2011/05/04/whassup_with_gl/)
+* [Handling errors using purrr's possibly() and safely()](https://aosmith.rbind.io/2020/08/31/handling-errors/)
 
 ## Data
 
@@ -47,7 +49,7 @@ The data we use for this task is:
 
 ```{r}
 counts <- read.table("data/counts-1pct-sample.tsv", header = TRUE)
-subset_length <- 1000
+subset_length <- 100
 subset_counts <- head(counts, n = subset_length)
 head(subset_counts)
 ```
@@ -55,22 +57,18 @@ For development of the initial script, we subset the counts data, which has `r n
 
 ## Developing an initial script
 
-To begin with, we will use `tidyr::pivot_longer` and `stats::glm`.
-We would like to end up with a function `f` which we can input into `profvis::profvis`.
+### `profvis`
 
 ```{r}
-f <- function() {
-  profvis::pause(0.1)
-  print("Profile me!")
-}
-
-profvis::profvis(f())
+possibly_glm <- possibly(.f = glm, otherwise = NULL)
+possibly_tidy <- possibly(.f = broom::tidy, otherwise = NULL)
 ```
 
-```{r}
-df <- subset_counts
+To begin with, we will use `tidyr::pivot_longer` and `stats::glm` to create a function `f` which we can input into `profvis::profvis` to produce a HTML output.
 
-df_long <- df %>%
+```{r}
+f <- function(df) {
+  df_long <- df %>%
   pivot_longer(
     cols = starts_with("day"),
     names_to = "day",
@@ -79,14 +77,69 @@ df_long <- df %>%
     names_transform = list(count = as.integer, day = as.integer)
   )
 
-fits <- tibble(ec = df$ec)
+  fits <- tibble(ec = df$ec)
+  fits <- mutate(fits, fit = map(ec, ~possibly_glm(count ~ 1 + day, family = "poisson", data = filter(df_long, ec == .))))
+  fits <- mutate(fits, fit = map(fit, possibly_tidy, conf.int = TRUE))
+  fits <- unnest(fits, fit)
+  return(fits)
+}
 
-possibly_glm <- possibly(.f = glm, otherwise = NULL)
-possibly_tidy <- possibly(.f = broom::tidy, otherwise = NULL)
+profvis::profvis(f(subset_counts))
+```
 
-fits <- mutate(fits, fit = map(ec, ~possibly_glm(count ~ 1 + day, family = "poisson", data = filter(df_long, ec == .))))
-fits <- mutate(fits, fit = map(fit, possibly_tidy, conf.int = TRUE))
-fits <- unnest(fits, fit)
+### `bench`
 
-head(fits)
+What about with `bench::mark` instead?
+
+```{r}
+nrows_small <- 10^{1:3}
+nrows_big <- 10^{1:6}
+
+pivot_bm <- bench::press(
+  nrows = nrows_big,
+  {
+    df <- head(counts, n = nrows)
+    bench::mark(
+      min_iterations = 100,
+      pivot = pivot_longer(
+        df,
+        cols = starts_with("day"),
+        names_to = "day",
+        names_prefix = "day",
+        values_to = "count",
+        names_transform = list(count = as.integer, day = as.integer)
+      )
+    )
+  }
+)
+
+pivot_bm
+```
+
+```{r}
+glm_bm <- bench::press(
+  nrows = nrows_small,
+  {
+    df <- head(counts, n = nrows)
+    df_long <- pivot_longer(
+        df,
+        cols = starts_with("day"),
+        names_to = "day",
+        names_prefix = "day",
+        values_to = "count",
+        names_transform = list(count = as.integer, day = as.integer)
+      )
+    bench::mark(
+      min_iterations = 10,
+      {
+        fits <- tibble(ec = df$ec)
+        fits <- mutate(fits, fit = map(ec, ~possibly_glm(count ~ 1 + day, family = "poisson", data = filter(df_long, ec == .))))
+        fits <- mutate(fits, fit = map(fit, possibly_tidy, conf.int = TRUE))
+        fits <- unnest(fits, fit)
+      }
+    )
+  }
+)
+
+glm_bm
 ```
