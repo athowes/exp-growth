@@ -13,7 +13,7 @@ output:
 abstract: |
     **Background** Poisson regression is a candidate method for exponential growth detection. The number of k-mers a realistic Nucleic Acid Observatory would process is large. For this reason, it's important that any candidate methods are assessed for their computational feasibility at scale.
     
-    **Task** We will write an R script for performing Poisson regression exponential growth detection on real data. Using code profling and benchmarking tools, we will iterate on the code to improve its computational performance. For the final code, we will produce a summary of the runtime for each line. We will repeat the runtime analysis for varying total numbers of k-mers.
+    **Task** We will write an R script for performing Poisson regression exponential growth detection on real data. Using code profling and benchmarking tools, we will iterate on the code to improve its computational performance. For the final code, we will produce a summary of the runtime for each line. We will repeat the runtime analysis for varying total numbers of k-mers. We will output an estimated time per e.g. million k-mers.
     
     **Findings** 
     
@@ -45,7 +45,7 @@ library(tidyverse)
 
 ## Data
 
-The data we use for this task is:
+We use the `counts` data for this task.
 
 ```{r}
 counts <- read.table("data/counts-1pct-sample.tsv", header = TRUE)
@@ -53,9 +53,9 @@ subset_length <- 100
 subset_counts <- head(counts, n = subset_length)
 head(subset_counts)
 ```
-For development of the initial script, we subset the counts data, which has `r nrow(counts)` rows, to just the first `r subset_length` rows.
+For development of the initial script, we subset `counts` data, which has `r nrow(counts)` rows and is of size `r format(object.size(counts), units = "auto")`, to just the first `r subset_length` rows of size `format(object.size(subset_counts), units = "auto")`.
 
-## Developing an initial script
+## Developing an initial scriptß
 
 ### `profvis`
 
@@ -89,7 +89,13 @@ profvis::profvis(f(subset_counts))
 
 ### `bench`
 
-What about with `bench::mark` instead?
+What about with `bench::mark` instead:
+
+> Benchmark a list of quoted expressions. Each expression will always run at least twice, once to measure the memory allocation and store results and one or more times to measure timing.
+
+The number of times that each expression is run is determined by... [TODO].
+
+#### Pivoting
 
 ```{r}
 nrows_small <- 10^{1:3}
@@ -100,7 +106,6 @@ pivot_bm <- bench::press(
   {
     df <- head(counts, n = nrows)
     bench::mark(
-      min_iterations = 100,
       pivot = pivot_longer(
         df,
         cols = starts_with("day"),
@@ -114,7 +119,11 @@ pivot_bm <- bench::press(
 )
 
 pivot_bm
+
+ggplot2::autoplot(pivot_bm)
 ```
+
+#### Running the generalised linear model
 
 ```{r}
 glm_bm <- bench::press(
@@ -129,17 +138,66 @@ glm_bm <- bench::press(
         values_to = "count",
         names_transform = list(count = as.integer, day = as.integer)
       )
+    
     bench::mark(
-      min_iterations = 10,
-      {
+      glm = {
         fits <- tibble(ec = df$ec)
         fits <- mutate(fits, fit = map(ec, ~possibly_glm(count ~ 1 + day, family = "poisson", data = filter(df_long, ec == .))))
-        fits <- mutate(fits, fit = map(fit, possibly_tidy, conf.int = TRUE))
-        fits <- unnest(fits, fit)
       }
     )
   }
 )
 
 glm_bm
+
+ggplot2::autoplot(glm_bm)
 ```
+
+#### Tidying the generalised linear model
+
+```{r}
+before_tidy <- function(nrows) {
+  df <- head(counts, n = nrows)
+  df_long <- pivot_longer(
+    df,
+    cols = starts_with("day"),
+    names_to = "day",
+    names_prefix = "day",
+    values_to = "count",
+    names_transform = list(count = as.integer, day = as.integer)
+  )
+  fits <- tibble(ec = df$ec)
+  fits <- mutate(fits, fit = purrr::map(ec, ~possibly_glm(count ~ 1 + day, family = "poisson", data = filter(df_long, ec == .))))
+  return(fits)
+}
+
+before_tidy(1)
+
+#' The following crashes for some reason..
+# tidy_bm <- bench::press(
+#   nrows = nrows_small,
+#   {
+#     fits <- before_tidy(nrows = nrows)
+#     bench::mark(
+#       {
+#         fits <- dplyr::mutate(fits, fit = purrr::map(fit, broom::tidy, conf.int = TRUE))
+#         fits <- unnest(fits, fit)
+#       }
+#     )
+#   }
+# )
+# 
+# tidy_bm
+```
+
+## Ideas and notes for continuation of this document
+
+* Use `?glm` to check what the possible input formats are
+  * Could use `filter` (or something more computationally efficient like `[]`) to pick out rows then put them into `glm`
+  * Could "hard-code" in the time covariate, as it is the same for every time-series
+* Use data.table to do the pivot, how much quicker is that?
+* On the order of GB memory is starting to be prohibitive
+* What exactly does `mem_alloc` refer to?
+* Try forecasting the requirements for each step at different numbers of $k$-mers (just by extrapolation)
+* Is `tidy` the slow running thing? Try it without `conf.int = TRUE`
+* Is there a way to specify one call to `glm` with inputs `ec` within the formula and gets what we're aiming for?

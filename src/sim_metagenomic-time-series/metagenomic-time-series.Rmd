@@ -13,9 +13,9 @@ output:
 abstract: |
     **Background** Rigorously benchmarking methods for exponential growth detection requires metagenomic datasets where the ground truth is known. Simulation is a flexible tool which could meet this need by enabling generation of datasets from known data generating processes. Thinking through how one might realistically simulate data is a furthermore a useful step in building understanding of the real data.
     
-    **Task** We aim to specify a hierarchical model for generation of metagenomic time series data, under (1) a baseline behaviour regime, and (2) an exponential growth regime. We expect the model to include modules for the behaviour of organisms under each regime, the relationship between organisms and k-mers, and the metagenomic sequencing observation process.
+    **Task** We aim to specify a hierarchical model for generation of metagenomic time series data, under (1) a baseline behaviour regime, and (2) an exponential growth regime. We expect the model to include modules for the behaviour of species under each regime, the relationship between species and k-mers, and the metagenomic sequencing observation process.
     
-    **Findings** This work is ongoing, and we believe that the task as specified is still of value. We preliminarily find that specifying an appropriate model for baseline organism behaviour requires some thought, and in particular that the lognormal geometric random walk produces some undesirable features in the data.
+    **Findings** This work is ongoing, and we believe that the task as specified is still of value. We preliminarily find that specifying an appropriate model for baseline species behaviour requires some thought, and in particular that the lognormal geometric random walk produces some undesirable features in the data.
     
     **Next steps** The next steps are to (1) build an understanding of and incorporate models for sequencing, (2) think of simple ways to prevent the issue observed with random walks, and (3) save some simulated data-sets ready to try inference.
 ---
@@ -38,8 +38,8 @@ library(tidyverse)
 ## Introduction via simple version
 
 ```{r}
-n_organism <- 10
-baseline_indices <- 2:n_organism
+n_species <- 10
+baseline_indices <- 2:n_species
 exponential_indices <- 1
 n_bp <- 100
 k <- 40
@@ -51,14 +51,14 @@ r <- 0.4
 read_depth <- 10^4
 ```
 
-Suppose that there are `r n_organism` organisms in total in the sample, and nothing else.
-Each organism has a genome that is exactly `r n_bp` base-pairs long.
+Suppose that there are `r n_species` species in total in the sample, and nothing else.
+Each species has a genome that is exactly `r n_bp` base-pairs long.
 Each genome is broken into $k$-mers of length `r k`.
-There are `r n_kmer` $k$-mers from each organism, obtained by subtracting the $k$-mer length from the genome size.
+There are `r n_kmer` $k$-mers from each species, obtained by subtracting the $k$-mer length from the genome size.
 Assume that each $k$-mer is unique, and there are no sequencing errors.
 We collect data over a period of `r time_window` days $t = 0, 1, \dots$ at a single environmental monitoring site.
 
-### Organism-level baseline and exponential regimes
+### Species-level baseline and exponential regimes
 
 We consider two regimes 1) baseline and 2) exponential growth.
 
@@ -66,34 +66,36 @@ In the baseline regime, a species has a concentration $c^{(b)}$ in water of `r b
 $$
 c^{(b)}_t = c^{(b)}
 $$
+Assuming that all of the species in the baseline regime have the same constant concentration is unrealistic, and will make detection of exponential growth substantially easier.
+
 In the exponential growth regime, a species starts at a concentration $c^{(e)}_0$, and over the `r time_window` day window its concentration increases exponentially according to
 $$
 c^{(e)}_t = c^{(e)}_0 \exp(rt)
 $$
-where $r$ is the growth rate which we take to be `r r`, and $c^{(e)}_0$ is the initial exponential concentration which we take to be `r exp_initial` -- lower than the baseline concentration as we assume the exponentially increasing organism to be novel.
+where $r$ is the growth rate which we take to be `r r`, and $c^{(e)}_0$ is the initial exponential concentration which we take to be `r exp_initial` -- lower than the baseline concentration as we assume the exponentially increasing species to be novel.
 
-The true concentration of the baseline organisms over the time window is:
+The true concentration of the baseline species over the time window is:
 
 ```{r}
 conc_baseline <- rep(baseline, time_window)
 conc_baseline
 ```
 
-And the true concentration of the exponentially increasing organism over the time window is:
+And the true concentration of the exponentially increasing species over the time window is:
 
 ```{r}
 conc_exponential <- exp_initial * exp(r * 0:13)
 conc_exponential
 ```
 
-Suppose that organisms `r baseline_indices` follow the baseline behaviour and organism `r exponential_indices` follows the exponential behaviour.
-We will represent the true concentrations of each organism with a matrix `C`:
+Suppose that species `r baseline_indices` are in the baseline regime and species `r exponential_indices` is in the exponential regime, such that `r 100 * length(exponential_indices) / length(baseline_indices)`/% of species are in the exponential regime^[In reality, we expect a small proportion of species to be in the exponential regime. Exactly what proportion this would be remains to be determined.].
+We will represent the true concentrations of each species with a matrix `C`:
 
 ```{r}
 C <- matrix(
   data = NA,
   nrow = time_window,
-  ncol = n_organism
+  ncol = n_species
 )
 
 C[, exponential_indices] <- conc_exponential
@@ -103,14 +105,14 @@ C
 
 ### Sampling $k$-mers
 
-We assume that the true concentration of each $k$-mer is that of the corresponding organism.
+We assume that the true concentration of each $k$-mer is that of the corresponding species.
 This may be represented by copying each column of the matrix `C` `r n_bp` times.
 
 ```{r}
 K <- matrix(rep(as.numeric(t(C)), each = n_kmer), nrow = time_window, byrow = TRUE)
 ```
 
-The matrix `K` now has `r nrow(K)` rows, one for each day, and `r ncol(K)` columns, one for each $k$-mer (of which there are `r n_kmer` times `r n_organism`).
+The matrix `K` now has `r nrow(K)` rows, one for each day, and `r ncol(K)` columns, one for each $k$-mer (of which there are `r n_kmer` times `r n_species`).
 We can calculate proportions, where the total number of $k$-mers is given by the row sums:
 
 ```{r}
@@ -129,9 +131,9 @@ A histogram of the $k$-mer counts at day 1 under each regime, showing that the e
 ```{r}
 sample_one <- rmultinom(1, read_depth, K_norm[1, ])
 
-get_regime <- function(organism_index) {
-  if(organism_index %in% baseline_indices) return("baseline")
-  if(organism_index %in% exponential_indices) return("exponential")
+get_regime <- function(species_index) {
+  if(species_index %in% baseline_indices) return("baseline")
+  if(species_index %in% exponential_indices) return("exponential")
   else return(NA)
 }
 
@@ -140,8 +142,8 @@ stopifnot(purrr::map_chr(1:2, get_regime) == c("exponential", "baseline"))
 
 data.frame(count = sample_one) %>%
   mutate(
-    organism = rep(1:n_organism, each = n_kmer),
-    regime = str_to_title(purrr::map_chr(organism, get_regime)),
+    species = rep(1:n_species, each = n_kmer),
+    regime = str_to_title(purrr::map_chr(species, get_regime)),
   ) %>%
   ggplot(aes(x = count, group = regime, fill = regime)) +
     geom_histogram(alpha = 0.8) +
@@ -170,19 +172,19 @@ sample_df <- sample %>%
   mutate(
     id = as.numeric(id),
     day = as.numeric(day),
-    kmer = rep(rep(1:n_kmer, each = time_window), times = n_organism),
-    organism = rep(1:n_organism, each = n_kmer * time_window),
-    regime = str_to_title(purrr::map_chr(organism, get_regime))
+    kmer = rep(rep(1:n_kmer, each = time_window), times = n_species),
+    species = rep(1:n_species, each = n_kmer * time_window),
+    regime = str_to_title(purrr::map_chr(species, get_regime))
   )
 
 saveRDS(sample_df, "sample0.rds")
 ```
 
-The data frame `sample_df` filtered to the first $k$-mer from the first organism is given by:
+The data frame `sample_df` filtered to the first $k$-mer from the first species is given by:
 
-`r filter(sample_df, kmer == 1, organism == 1)`
+`r filter(sample_df, kmer == 1, species == 1)`
 
-Let's plot the data from organism `r exponential_indices` which we have set to be exponentially increasing, together with the data from all other organisms which we have set to follow a baseline distribution:
+Let's plot the data from species `r exponential_indices` which we have set to be exponentially increasing, together with the data from all other species which we have set to follow a baseline distribution:
 
 ```{r}
 reads_plot <- function(df) {
@@ -222,13 +224,14 @@ sample_summary <- sample_df %>%
 pickout_day <- 10
 ```
 
-With these settings, on day `r pickout_day` the median count of organism 1 is `r filter(sample_summary, day == pickout_day)$count_median` and $k$-mers from organism 1 represent `r 100 * filter(sample_summary, day == pickout_day)$count_median * n_kmer / read_depth`\% of the total reads.
+With these settings, on day `r pickout_day` the median count of species 1 is `r filter(sample_summary, day == pickout_day)$count_median` and $k$-mers from species 1 represent `r 100 * filter(sample_summary, day == pickout_day)$count_median * n_kmer / read_depth`\% of the total reads.
+We expect the reads of the $k$-mers that we want to detect as exponentially increasing to be a small fraction of the total reads, which is not well captured by this simulation.
 
 Now, we will start to make this simulation more realistic by adding sources of noise.
 
 ## Adding noise to the true abundances
 
-In reality, the organism abundances will vary, neither being fixed to a constant or increasing deterministically.
+In reality, the species abundances will vary, neither being fixed to a constant or increasing deterministically.
 We will now suppose that the abundances vary stochastically as follows.
 
 ### Lognormal geometric random walk
@@ -318,6 +321,7 @@ epsilon_x_conc_plot(df, "Lognormal geometric random walk")
 ```
 The key takeaway here about the lognormal geometric random walk model is that even though the noise is IID and Gaussian, when you take the cumulative sum and exponentiate it can lead to large deviations in concentration, which follows from the variance of a random walk increasing linearly in time.
 The maximum concentration value under the baseline regime observed was `r max(baseline_df$conc)` -- which is `r max(baseline_df$conc) / baseline` greater than the baseline concentration.
+It may be helpful to have some idea of the maximum sample concentration which is possible, and impose this as a (soft) constraint somehow.
 
 ### Lognormal geometric auto-regressive process for baseline
 
@@ -353,13 +357,13 @@ df_ar <- bind_rows(exponential_df, baseline_ar_df)
 epsilon_x_conc_plot(df_ar, "Lognormal geometric auto-regressive behaviour for the baseline")
 ```
 
-We will now simulate and plot data for this model (lognormal geometric auto-regressive for the baseline, and lognormal geometric random walk for the exponential) with `r n_organism` organisms in total, each of which with `r n_kmer` $k$-mers as before.
+We will now simulate and plot data for this model (lognormal geometric auto-regressive for the baseline, and lognormal geometric random walk for the exponential) with `r n_species` species in total, each of which with `r n_kmer` $k$-mers as before.
 
 ```{r}
 C <- matrix(
   data = NA,
   nrow = time_window,
-  ncol = n_organism
+  ncol = n_species
 )
 
 C[, baseline_indices] <- df_ar %>%
@@ -393,7 +397,7 @@ C
 #' Bring together code from above
 sample_kmers <- function(C, n_kmer, read_depth) {
   time_window <- nrow(C)
-  n_organism <- ncol(C)
+  n_species <- ncol(C)
   K <- matrix(rep(as.numeric(t(C)), each = n_kmer), nrow = time_window, byrow = TRUE)
   K_norm <- t(apply(K, 1, function(x) x / sum(x), simplify = TRUE))
   sample <- apply(K_norm, 1, function(row) rmultinom(1, read_depth, row))
@@ -412,9 +416,9 @@ sample_kmers <- function(C, n_kmer, read_depth) {
     mutate(
       id = as.numeric(id),
       day = as.numeric(day),
-      kmer = rep(rep(1:n_kmer, each = time_window), times = n_organism),
-      organism = rep(1:n_organism, each = n_kmer * time_window),
-      regime = str_to_title(purrr::map_chr(organism, get_regime))
+      kmer = rep(rep(1:n_kmer, each = time_window), times = n_species),
+      species = rep(1:n_species, each = n_kmer * time_window),
+      regime = str_to_title(purrr::map_chr(species, get_regime))
     )
 }
 
@@ -424,6 +428,12 @@ saveRDS(sample_df, "sample1.rds")
 
 reads_plot(sample_df)
 ```
+### Ideas for further extensions
+
+To further this research direction, we could consider more sophisticated time-series models for the baseline and exponential regimes.
+This might include [structural time-series models](https://structural-time-series.fastforwardlabs.com/) with seasonal and local trends.
+Doing so would help to highlight a problem that any NAO is going to encounter whereby there will be naturally periods of exponential growth in the baseline regime.
+It would be useful to understand (1) how often this might occur, (2) if there are, and whether it would be a good idea to pursue, strategies to avoid erroneously flagging this behaviour.
 
 ## Sequencing observation models
 
@@ -433,7 +443,7 @@ See @townes2020review for a nice review of models for count data.
 ### Dirichlet-multinomial model
 
 Rather than assuming that during sequencing the probabilities of sampling each $k$-mer are given by the true proportions of the $k$-mer, we might want to add additional noise.
-One way to do this is to sample the proportions $w$ from a probability distribution over the simplex such as the Dirichlet.
+One way to do this is to sample the proportions $w$ from a probability distribution over the simplex such as the Dirichlet^[Note that Mike has a hunch that the Dirichlet Multinomial maybe is not as good as other possible models.].
 Given a vector of positive real numbers $\alpha = (\alpha_1, \ldots, \alpha_K)$ then $w \sim \text{Dirichlet}(\alpha_1, \ldots, \alpha_K)$ if
 $$
 p(w; \alpha) = \frac{\Gamma(\sum_k \alpha_k)}{\prod_k \Gamma(\alpha_k)} w_1^{\alpha_1 - 1} w_2^{\alpha_2 - 1} \times \cdots \times w_K^{\alpha_K - 1}
@@ -487,6 +497,10 @@ In this setting, we may want to widen the posterior somewhat, as the sample of r
 
 Structural realism may be improved by noticing stylistic features of the real data which the simulated data does not possess.
 These features might include shapes of distributions, tail heaviness, skewness, sources and structure of variation, sources and structure of biases, presence of outliers or multi-modalities etc.
+
+Another way to improve simulation realism is to consider each module of the simulation separately, using relevant technical replicates to calibrate to.
+These technical replicates are from the literature they may not be directly relevant, but could provide a good starting place.
+If there are specific parts of the model where in-house experiments might be especially informative for improving simulation, we could consider that approach too.
 
 For further reading on this, I would suggest the preprint (and upcoming book) [Bayesian workflow](https://arxiv.org/pdf/2011.01808.pdf) by Gelman et al.
 

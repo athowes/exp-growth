@@ -11,9 +11,9 @@ output:
     code_folding: hide
     theme: lumen
 abstract: |
-    **Background** 
+    **Background** We can test approaches to exponential growth detection using simulated metagenomic time-series data. We have generated this data in the notebook "Simulating metagenomic time series data".
     
-    **Task** 
+    **Task** In this notebook we will import the simulated data, perform and clarify the Poisson regression approach to exponential growth detection, and measure performance against the ground truth using a range of approaches.
     
     **Findings** 
     
@@ -37,14 +37,14 @@ library(tidyverse)
 
 ## First simulated example
 
-We start by importing the data generated in the notebook [Simulating metagenomic time series data](https://athowes.github.io/exp-growth/metagenomic-time-series).
+We start by importing the data generated in [Introduction via simple version, Simulating metagenomic time series data](https://athowes.github.io/exp-growth/metagenomic-time-series#Introduction_via_simple_version).
 
 ```{r}
 df <- readRDS("depends/sample0.rds") %>%
   as_tibble()
 ```
 
-This data looks as follows.
+A full description of the data is provided in the linked notebook, but to give a quick idea: the plot below shows each draw from the two regimes, baseline and exponential, shown as feint lines, together with corresponding regime 95% intervals shown as shaded region and regime mean shown as bold line. 
 
 ```{r}
 sample_summary <- df %>%
@@ -53,7 +53,8 @@ sample_summary <- df %>%
     count_upper = quantile(count, 0.95),
     count_median = median(count),
     count_lower = quantile(count, 0.05)
-  )
+  ) %>%
+  ungroup()
 
 ggplot(sample_summary, aes(x = day, ymin = count_lower, y = count_median, ymax = count_upper, group = regime)) +
     geom_ribbon(alpha = 0.1, aes(fill = regime)) +
@@ -69,7 +70,11 @@ ggplot(sample_summary, aes(x = day, ymin = count_lower, y = count_median, ymax =
 
 ### Performing inference
 
-We fit a Poisson regression model (see [Explaining Poisson regression](https://athowes.github.io/exp-growth/explain-poisson) or [Estimating exponential growth via sporadic detection](https://athowes.github.io/exp-growth/exponential-detection)) to each $k$-mer in the data.
+We fit a Poisson regression model (see [Explaining Poisson regression](https://athowes.github.io/exp-growth/explain-poisson)) or [Estimating exponential growth via sporadic detection](https://athowes.github.io/exp-growth/exponential-detection)) to each $k$-mer in the data.
+It is important to note that the generative process used to create the simulated data may be of greater complexity than Poisson regression inferential model.
+We take this approach because we expect any functional NAO system to need to be able to handle a large number of $k$-mers (or $k$-mer equivalence classes, etc.), and therefore we require the inferential approach to be highly scalable.
+Poisson regression is a comparatively simple inferential approach, which we hope can be shown via benchmarking (see [Benchmarking Poisson regression for exponential growth detection](https://athowes.github.io/exp-growth/egd-benchmark)) to be scalable to the number of $k$-mers we expect, which might be^[To some extent, the number of $k$-mers can be varied in accordance with computational capacity.] on the order of $10^9$.
+If Poisson regression is feasible computationally, but has particular unsatisfactory statistical behaviour, then we could consider a more sophisticated inferential model to overcome specific problems.
 
 ```{r}
 #' Fit to each unique id
@@ -269,40 +274,18 @@ ggplot(counts_subset_long, aes(x = day, y = count, group = ec)) +
 row_sums <- read.table("data/daily-counts.tsv", header = TRUE)
 row_sums
 ```
-## Notes from meeting with Mike
-
-Time per e.g. million ECs might be a useful format for benchmarking.
-Time for each of the different subsets.
-
-?glm to check what the possible input formats are.
-Benchmarking the different steps (including pivot_longer).
-Use data.table to do the pivot.
-
-Create `egd.R` that Jeff would source.
-Benchmark aspects of egd.R and try to improve the slowest running parts.
-Pivoting (and other aspects) might not be linear.
-How does pivoting scale with size?
-
-Look at different aspects (modules) of the simulation (to have technical replicates).
-Datasets that have that are not going to be wastewater (but we can also run experiments).
-Dirichlet Multinomial maybe not as good.
 
 ## Notes on feedback from Sam
 
-Status: short response, to integrate feedback into documents.
+Status: short response, some points already integrated into document.
 
 ### Major comments
 
 * More detail on expected sampling process would help: I assume this refers to the metagenomic sampling process, which I agree is a hole at the moment and something I'm looking to fill in further. For now, I just choose to use the a multinomial sample with number of reads as sample size as it seemed the simplest.
 * Some example data would be very useful to understand the process: I'm unsure exactly what "example data" refers to here, would it be real data or more examples of simulated data? Since there are examples of simulated data in there, I'd assume real data. I agree that we need to start looking at more real data (so far I've only looked at one example of real data).
-* Rationale for motivating complex simulation model then using Poisson regression: Expecting computation to be restrictive, so using the simplest possible inferential methods for the time being. If it's shown that we can afford more computation, and there are things that Poisson regression doesn't do well, then we could think about patching them up with something more sophisticated.
 
 ### Minor comments
 
-* More context on expected processes happening in background: Agree that what has been done is quite abstract and not very linked to a particular scenario or case-study. Since I've been talking about making things realsitic, picking one case-study to focus in on and pick realistic values and settings for could be a good route.
-* 1/10 of simulated targets are positive: Yes this is likely too high, we don't want to be flagging 10% of things. This is easier than we expect in reality.
-* Constant baseline makes it easier: Agree, this is very easy as things go (you can just eyeball them all).
-* What about a structural time-series model with local trends: Yes that would be great. Not only, but it would also highlight a problem we're going to be running into (I assume) in that there will be naturally occuring exponential growth which is not a threat, so knowing exactly how to be dealing with that (or even how often it's the case) is important.
-* Maximum sample concentration: Not sure, but one thing is that we expect the sample concentration of the thing we want to detect to be much lower than everything else (which hasn't been captured well by these simulations).
+* More context on expected processes happening in background: Agree that what has been done is quite abstract and not very linked to a particular scenario or case-study. Since I've been talking about making things realistic, picking one case-study to focus in on and pick realistic values and settings for could be a good route.
 * Gaussian random walk creates large changes: Agree, I've found that draws from Gaussian growth rate with mean greater than zero (exponential regime) can be quite varied. Worth thinking about more.
 * Adjustments for prevalence and not incidence: Good point, I don't know. For now we're assuming that there will be an exponential signal in the $k$-mers, which I agree is probably proportional to prevalence more than incidence. I think it's an open question whether we need to be adjusting for this (which potentially more epidemiological modelling [Charlie / Janvi?] could help with)
