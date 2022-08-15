@@ -357,7 +357,7 @@ df_ar <- bind_rows(exponential_df, baseline_ar_df)
 epsilon_x_conc_plot(df_ar, "Lognormal geometric auto-regressive behaviour for the baseline")
 ```
 
-We will now simulate and plot data for this model (lognormal geometric auto-regressive for the baseline, and lognormal geometric random walk for the exponential) with `r n_species` species in total, each of which with `r n_kmer` $k$-mers as before.
+We will now simulate and plot data for this model (lognormal geometric auto-regressive for the baseline, and lognormal geometric random walk^[Draws from Gaussian a growth rate with mean greater than zero (exponential regime) can be quite varied, so might be worth thinking about changing this too.] for the exponential) with `r n_species` species in total, each of which with `r n_kmer` $k$-mers as before.
 
 ```{r}
 C <- matrix(
@@ -477,10 +477,7 @@ dirichlet_draw <- gtools::rdirichlet(n = 1, alpha = K_norm[1, ])
 
 ## Methods for improving simulation accuracy
 
-**Time status** $2 \times 25\text{ min}$ 
-
 How could we go about making the simulations more realistic?
-
 The realism of a given model can be divided into structural realism and parametric realism^[This distinction is somewhat arbitrary, in that there may be no clear distinction between structural and parameteric realism, but may still be useful.
 For example some distributions are general enough to admit other distributions as special cases when certain parameter versions are chosen e.g. the Gaussian might (perhaps unhelpfully) be thought of as a special case of the Student-t as the degrees of freedom tends to infinity.].
 Structural realism refers to the distributional assumptions made.
@@ -503,6 +500,12 @@ These technical replicates are from the literature they may not be directly rele
 If there are specific parts of the model where in-house experiments might be especially informative for improving simulation, we could consider that approach too.
 
 For further reading on this, I would suggest the preprint (and upcoming book) [Bayesian workflow](https://arxiv.org/pdf/2011.01808.pdf) by Gelman et al.
+
+## Ideas and notes for continuation of this document
+
+* Add more context for the system this framework fits inside
+* Consider some type of case-study with realistic parameter values
+* Flesh out the metagenomic sampling process (more than just a multinomial sample with number of reads as sample size)
 
 ## Futher potentially useful links
 

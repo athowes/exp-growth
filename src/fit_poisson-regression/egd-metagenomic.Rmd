@@ -95,7 +95,7 @@ fits <- fits %>%
 ```
 
 Now we can look at the inference for the slope parameter $\beta$ in each regression, first the point estimate with confidence interval, then the $p$-value for $\beta \neq 0$.
-The truth -- either exponential or baseline regime -- is shown by the point colour.
+In the following two plots the truth -- either exponential or baseline regime -- is shown by the point colour.
 
 ```{r}
 fits_day <- filter(fits, term == "day")
@@ -115,7 +115,7 @@ fits_day %>%
   geom_point() +
   theme_minimal() +
   scale_color_manual(values = cbpalette) +
-  labs(x = "k-mer ID", y = "p-value for positive slope", col = "True regime") +
+  labs(x = "k-mer ID", y = "p-value for non-zero slope", col = "True regime") +
   theme(
     legend.position = "bottom"
   )
@@ -123,10 +123,13 @@ fits_day %>%
 saveRDS(fits, "fits-sample0.rds")
 ```
 
+The `fits_day` object has columns including the $k$-mer ID, estimated slope and standard error, statistic (given by `statistic = estimate / std.error`), p-value (given by `p.value = 2 * (1 - pnorm(abs(statistic)))`), lower 95% confidence interval (given by `estimate - qnorm(0.975) * std.error`) and upper 95% confidence interval (given by `estimate + qnorm(0.975) * std.error`).
+
 ### Performance assessment
 
 Suppose we classify as exponential growth when the 95% confidence interval for $\beta$ is above zero.
 We can see which $k$-mers we misclassify by comparing this estimated regime to the true regime.
+In the following two plots we show $k$-mers correctly classified in grey and $k$-mers incorrectly classified in red.
 
 ```{r}
 fits_day <- fits_day %>%
@@ -165,6 +168,7 @@ fits_day %>%
 All of the $k$-mers which are exponentially increasing are classified as such.
 In other words, the false negative rate is zero.
 There are a small number of false positives: $k$-mers in the baseline regime which are classified as exponentially increasing.
+All of the values in the confusion matrix are given by:
 
 ```{r}
 fits_day <- fits_day %>%
@@ -182,7 +186,7 @@ fits_day %>%
   knitr::kable()
 ```
 
-We can highlight these few false positives in a plot.
+We highlight the few false positives in red in the following plot:
 
 ```{r}
 df %>%
@@ -199,34 +203,27 @@ df %>%
     labs(x = "Day", y = "Number of reads in sample", col = "Correctly classified?")
 ```
 
-TODO: Compute classification probabilities.
-
 The Brier score (see [Evaluating exponential growth detection](https://docs.google.com/document/d/1wSi6RknvA91mEB7gY8icdcUPHP7kEObhdwXDb5D9FAY/edit)) is given by
 $$
 \text{BS} = \frac{1}{n} \sum_{i = 1}^n \left(f_i - o_i \right)^2
 $$
 where $f_i$ is $\mathbb{P} \left[ \text{regime}(i) = 1 \right]$ and $o_i = \text{regime}(i) \in \{0, 1\}$.
 
-### Benchmarking
-
-We can benchmark how long the Poisson regression model takes to fit using the function `bench::mark`:
-
 ```{r}
-bm <- bench::mark(
-  glm(count ~ 1 + day, family = "poisson", data = filter(df, id == 1))
-)
+fits_day %>%
+  mutate(
+    prob = 1 - p.value,
+    regime_numeric = case_when(
+      regime == "Exponential" ~ 1,
+      regime == "Baseline" ~ 0
+    ),
+    brier = (prob - regime_numeric)^2
+    ) %>%
+  group_by(regime) %>%
+  summarise(average_brier = mean(brier))
 
-data_subset <- filter(df, id == 1)
-
-bm2 <- bench::mark(
-  glm(count ~ 1 + day, family = "poisson", data = data_subset)
-) %>%
-  print()
-
-bm
-bm2
-
-saveRDS(bm, "benchmark-sample0.rds")
+#' Note: relation of average Brier score in baseline regime to
+mean(runif(1000)^2)
 ```
 
 ## With additional true abundance noise
@@ -240,19 +237,19 @@ df <- readRDS("depends/sample1.rds") %>%
 
 ```{r, class.source = 'fold-show'}
 counts <- read.table("data/counts-1pct-sample.tsv", header = TRUE)
+subset_size <- 1000
+```
 
-summary(counts)
+The real data we use has `r `nrow(counts)` total $k$-mers, and looks like:
 
-#' There are this many k-mers in the data
-nrow(counts)
-
-#' These are the column names for counts
-names(counts)
-
-#' This is what the top part of the data looks like
+```{r}
 head(counts)
+```
 
-counts_subset <- filter(counts, ec < 1000)
+We will use a subset of size `r subset_size`, plotted below:
+
+```{r}
+counts_subset <- filter(counts, ec <= subset_size)
 
 #' In a tidy format for plotting and fitting
 counts_subset_long <- counts_subset %>%
@@ -260,9 +257,9 @@ counts_subset_long <- counts_subset %>%
     cols = starts_with("day"),
     names_to = "day",
     names_prefix = "day",
-    values_to = "count"
-  ) %>%
-  mutate(day = as.integer(day))
+    values_to = "count",
+    names_transform = list(day = as.integer, count = as.integer)
+  )
 
 #' Plot the time series
 ggplot(counts_subset_long, aes(x = day, y = count, group = ec)) +
@@ -272,20 +269,68 @@ ggplot(counts_subset_long, aes(x = day, y = count, group = ec)) +
 
 #' There is also a file which I assume is the total reads
 row_sums <- read.table("data/daily-counts.tsv", header = TRUE)
-row_sums
 ```
 
-## Notes on feedback from Sam
+### Performing inference and inference assessment
 
-Status: short response, some points already integrated into document.
+```{r}
+fits <- tibble(ec = counts_subset$ec) %>%
+  mutate(fit = map(ec, ~glm(count ~ 1 + day, family = "poisson", data = filter(counts_subset_long, ec == .)))) %>%
+  mutate(fit = map(fit, broom::tidy, conf.int = TRUE)) %>%
+  unnest(fit)
 
-### Major comments
+fits_day <- filter(fits, term == "day") %>%
+  mutate(
+    est_regime = case_when(
+      conf.low > 0 & conf.high > 0 ~ "Exponential",
+      TRUE ~ "Baseline"
+    )
+  )
 
-* More detail on expected sampling process would help: I assume this refers to the metagenomic sampling process, which I agree is a hole at the moment and something I'm looking to fill in further. For now, I just choose to use the a multinomial sample with number of reads as sample size as it seemed the simplest.
-* Some example data would be very useful to understand the process: I'm unsure exactly what "example data" refers to here, would it be real data or more examples of simulated data? Since there are examples of simulated data in there, I'd assume real data. I agree that we need to start looking at more real data (so far I've only looked at one example of real data).
+fits_day %>%
+  ggplot(aes(x = ec, y = estimate, ymin = conf.low, ymax = conf.high, col = est_regime)) +
+    geom_pointrange(alpha = 0.5, size = 0.5) +
+    theme_minimal() +
+    scale_color_manual(values = cbpalette) +
+    labs(x = "k-mer ID", y = "Estimated slope", col = "Estimated regime") +
+    theme(
+      legend.position = "bottom"
+    )
 
-### Minor comments
+fits_day %>%
+  ggplot(aes(x = ec, y = p.value, col = est_regime)) +
+  geom_point() +
+  scale_color_manual(values = cbpalette) +
+  theme_minimal() +
+  labs(x = "k-mer ID", y = "p-value for non-zero slope", col = "Estimated regime") +
+  theme(
+    legend.position = "bottom"
+  )
 
-* More context on expected processes happening in background: Agree that what has been done is quite abstract and not very linked to a particular scenario or case-study. Since I've been talking about making things realistic, picking one case-study to focus in on and pick realistic values and settings for could be a good route.
-* Gaussian random walk creates large changes: Agree, I've found that draws from Gaussian growth rate with mean greater than zero (exponential regime) can be quite varied. Worth thinking about more.
-* Adjustments for prevalence and not incidence: Good point, I don't know. For now we're assuming that there will be an exponential signal in the $k$-mers, which I agree is probably proportional to prevalence more than incidence. I think it's an open question whether we need to be adjusting for this (which potentially more epidemiological modelling [Charlie / Janvi?] could help with)
+saveRDS(fits_day, "fits-counts.rds")
+
+counts_subset_long %>%
+  left_join(
+    select(fits_day, ec, est_regime),
+    by = "ec"
+  ) %>%
+  ggplot(aes(x = day, y = count, col = est_regime, alpha = est_regime, group = ec)) +
+    geom_line() +
+    facet_grid(~est_regime) +
+    scale_color_manual(values = cbpalette) +
+    scale_alpha_manual(values = c(0.05, 0.5)) +
+    theme_minimal() +
+    guides(alpha = "none") + 
+    labs(x = "Day", y = "Number of reads in sample", col = "Estimated regime")
+```
+
+## Ideas for making the inferential model more complex
+
+* Hierarchical mixture (different regimes) model
+
+## Possible concerns
+
+* We're assuming that exponential increase in incidence will produce exponential signal in the $k$-mers (which will approximately be like prevalence)
+  * It's an open question whether we need to be adjusting for this (which potentially more epidemiological modelling could help with)
+* Expect the signal to initially be subexponential due to reporting delays
+  

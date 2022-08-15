@@ -10,10 +10,7 @@ artefacts:
       description: Inference output
       filenames:
         - fits-sample0.rds
-  - data:
-      description: Inference output
-      filenames:
-        - benchmark-sample0.rds
+        - fits-counts.rds
 
 resources:
   - egd-metagenomic.Rmd
