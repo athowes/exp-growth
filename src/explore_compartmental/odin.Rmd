@@ -1,0 +1,152 @@
+---
+title: "Learning about `odin`"
+author: "Adam Howes"
+output:
+  html_document:
+    toc: yes
+    toc_float: true
+    toc_collapsed: true
+    df_print: paged
+    theme: lumen
+---
+
+```{r}
+library(odin)
+```
+
+# Logistic growth
+
+```{r}
+logistic <- odin::odin({
+  deriv(N) <- r * N * (1 - N / K)
+  initial(N) <- N0
+
+  N0 <- 1
+  K <- 100
+  r <- 0.5
+})
+
+mod <- logistic$new()
+mod$init
+mod$deriv(0, mod$initial(0))
+mod$contents()
+
+tt <- seq(0, 30, length.out = 101)
+y <- mod$run(tt)
+plot(y, xlab = "Time", ylab = "N", las = 1, main = "")
+
+y2 <- mod$run(tt, 50)
+plot(y, xlab = "Time", ylab = "N", las = 1, main = "")
+lines(y2, col = "red")
+```
+
+## Varying parameters
+
+```{r}
+logistic <- odin::odin({
+  deriv(N) <- r * N * (1 - N / K)
+  initial(N) <- N0
+
+  N0 <- user(1)
+  K <- user(100)
+  r <- user()
+})
+
+mod <- logistic$new(r = 1)
+
+y3 <- mod$run(tt)
+plot(y, xlab = "Time", ylab = "N", las = 1, main = "")
+lines(y3, col = "red")
+```
+
+# Deterministic susceptible-infected-recovered (SIR) model
+
+```{r}
+sir <- odin::odin({
+  deriv(S) <- - beta * S * I / N
+  deriv(I) <- beta * S * I / N - sigma * I
+  deriv(R) <- sigma * I
+  
+  initial(I) <- I0
+  initial(S) <- N0 - I0
+  initial(R) <- 0
+
+  N <- S + I + R
+  
+  beta <- user()
+  sigma <- user()
+  
+  N0 <- user()
+  I0 <- user()
+})
+
+dt <- 0.05
+end <- 10
+mod <- sir$new(beta = 0.5, sigma = 0.25, N0 = 1000, I0 = 1)
+out <- mod$run(1:(end / dt))
+
+out_long <- out %>%
+  as.data.frame() %>%
+  pivot_longer(
+    cols = c("S", "I", "R"),
+    names_to = "compartment",
+    values_to = "value"
+  )
+
+out_long %>%
+  ggplot(aes(x = t, y = value, col = compartment, group = compartment)) +
+  geom_line() +
+  labs(x = "Time", y = "Count", col = "Compartment")
+```
+
+# Stochastic SIR model
+
+We have:
+
+* Compartments: `S`, `I`, `R`
+* Numbers moving between compartments at each time-step: `n_SI`, `n_IR`
+* Individual probabilities of transition: `p_SI`, `p_IR`
+* Epidemiological parameters: `beta`, `gamma`
+
+```{r}
+sir_s <- odin::odin({
+  update(S) <- S - n_SI
+  update(I) <- I + n_SI - n_IR
+  update(R) <- R + n_IR
+  
+  p_SI <- 1 - exp(-beta * I / N) #' P(S -> I)
+  p_IR <- 1 - exp(-gamma) #' P(I -> R)
+  
+  n_SI <- rbinom(S, p_SI)
+  n_IR <- rbinom(I, p_IR)
+  
+  N <- S + I + R
+  
+  initial(S) <- S_init
+  initial(I) <- I_init
+  initial(R) <- 0
+  
+  S_init <- user(1000)
+  I_init <- user(1)
+  beta <- user(0.2)
+  gamma <- user(0.1)
+})
+
+dt <- 0.05
+end <- 10
+mod <- sir_s$new()
+out <- mod$run(1:(end / dt))
+
+out_long <- out %>%
+  as.data.frame() %>%
+  pivot_longer(
+    cols = c("S", "I", "R"),
+    names_to = "compartment",
+    values_to = "value"
+  )
+
+out_long %>%
+  ggplot(aes(x = step, y = value, col = compartment, group = compartment)) +
+  geom_line() +
+  labs(x = "Time", y = "Count", col = "Compartment")
+```

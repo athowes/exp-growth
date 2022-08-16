@@ -1,0 +1,14 @@
+script: script.R
+
+artefacts:
+  - data:
+      description: Learning about compartmental models
+      filenames:
+        - odin.html
+
+resources:
+  odin.Rmd
+
+packages:
+  - dplyr
+  - ggplot2
