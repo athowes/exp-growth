@@ -16,7 +16,7 @@
 
 * [coda](https://athowes.github.io/exp-growth/coda): notes on compositional data analysis
 * [computational-genomics](https://athowes.github.io/exp-growth/computational-genomics): notes on computational genomics
-* [odin](https://athowes.github.io/exp-growth/computational-genomics): testing the `odin` package for compartmental models
+* [odin](https://athowes.github.io/exp-growth/odin): testing the `odin` package for compartmental models
 
 ## Other
 
