@@ -1,0 +1,85 @@
+---
+title: "Catchment area size and concentration"
+author: "Adam Howes"
+output:
+  html_document:
+    toc: yes
+    toc_float: true
+    toc_collapsed: true
+    df_print: paged
+    theme: lumen
+  
+---
+
+**Status:** brief note after a discussion with Charlie.
+
+## Concentration considerations
+
+* Consider two types of wastewater concentration:
+  1. Removal of excess water
+  2. Differential target enrichment
+
+## Nested catchment areas simulation
+
+Is it always preferable to have a larger catchment area?
+Larger catchment areas are likely to contain more shedding events, but are also likely to process a higher volume of wastewater.
+Smaller catchment areas are likely to contain less shedding events, and process less volume of wastewater.
+
+One approach to investigating this problem could be to consider nested catchment areas as follows:
+
+
+```{r}
+library(sf)
+```
+
+```{r}
+center <- c(0, 0)
+
+r1 <- 1
+r2 <- 2
+
+p <- st_point(center)
+
+area1 <- st_buffer(p, dist = r1)
+area2 <- st_buffer(p, dist = r2)
+
+geometry <- lapply(list(area1, area2), function(area) list(area) %>% sf::st_multipolygon()) %>%
+  sf::st_sfc() %>%
+  sf::st_sf()
+
+plot(geometry)
+```
+
+* Consider hypothetical catchment areas 1 and 2
+  * Catchment area 1 has center `r center` and radius `r r1`
+  * Catchment area 1 has center `r center` and radius `r r2`
+* Let time be fixed
+* The abundance of target nucleic acid in each catchment area is $A_1$ and $A_2$ with $A_2 \geq A_1$
+* The wastewater volume processed in each catchment area is $V_1$ and $V_2$ with $V_2 \geq V_1$
+  * Let volume processed be proportional to area such that $V_1 = K\pi$ and $V_2 = 4K \pi$ where $K > 0$ is a constant
+* Suppose shedding events $X \sim \text{Poisson}(\lambda)$ are distributed evenly over space
+  * Assume each shedding event produces a constant amount of target nucleic acid
+
+```{r}
+K <- 1000
+
+V1 <- K * st_area(area1)
+V2 <- K * st_area(area2)
+
+lambda <- 5
+X <- rpois(1, 5)
+X
+
+s <- st_sample(area2, size = X, type = "random")
+
+plot(geometry)
+plot(s, add = TRUE)
+
+s1 <- lengths(st_intersects(area1, s))
+s2 <- lengths(st_intersects(area2, s))
+```
+
+* We take $K$ to be `r K`
+* We take $\lambda$ to be `r lambda`
+* There are `r s1` shedding events inside area 1 and `r s2` shedding events inside area 2
+* Note that although I visualise this process happening spatially, for the purposes of simulation it isn't really necessary (it's just a visual aid)
