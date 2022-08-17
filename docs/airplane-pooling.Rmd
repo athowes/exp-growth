@@ -1,0 +1,51 @@
+---
+title: "Airplane wastewater pooling"
+author: "Adam Howes"
+output:
+  html_document:
+    toc: yes
+    toc_float: true
+    toc_collapsed: true
+    df_print: paged
+    theme: lumen
+  
+---
+
+**Status:** brief note after discussion with Mike and Charlie aiming to resolve confusion or disagreement about wastewater pooling.
+
+## Pooled concentration
+
+Consider that we have two planes indexed by $f = 1, 2$ (where $f$ stands for "flight").
+Let $A_{I, f}$ be the abundance of target pathogen, $A_{U, f}$ be the amount (or abundance) of other nucleic acid and $V_{f}$ be the total volume of wastewater from each flight.
+
+Imagine that all of the wastewater from the flights is pooled together.
+Then the pooled amounts^[For brevity I do not use any notation to signify "pooled". In a later version of this, you might want to add such an indicator.] of pathogen and other nucleic acid are
+\begin{align}
+    A_{I} &= \sum_{f = 1, 2} A_{I, f}, \\
+    A_{U} &= \sum_{f = 1, 2} A_{U, f},
+\end{align}
+and the total volume of wastewater is
+$$
+    V = \sum_{f = 1, 2} V_{f}.
+$$
+The pooled concentration of the pathogen and other nucleic acids in are
+\begin{align}
+    C_{I} &= \frac{A_{I}}{V_{f}}, \\
+    C_{U} &= \frac{A_{U}}{V_{f}}. 
+\end{align}
+
+## Equivalent sampling approaches
+
+Suppose we sample a fraction $f \in (0, 1)$ of the pooled wastewater.
+The expected amounts of pathogen and other nucleic acid are simply $f A_{I}$ and $f A_{U}$.
+The expected concentrations remain unchanged as we both amount and volume are multiplied by $f$, which cancels.
+
+Note that we expect the proportion of each wastewater source in the sample to be the same as it is in the whole pool.
+To see this: if you have a gin and tonic made up of 1/4 gin and 3/4 tonic, then every sip you expect there to be (about) 1/4 gin and 3/4 tonic
+
+This means that there are (at least) two equivalent ways that we could arrive at these pooled equations physically:
+
+1. All the of the wastewater is deposited into a holding tank, we assume that it is mixed together, then we take a sample with fraction $f$
+2. The wastewater from each plane is sent into a pipe, which operates such that the pipe separates a fraction $f$ of each plane's wastewater into a separate tank
+
+Similarly, if you wanted a sip of gin and tonic you could either make up a whole drink and take a sip, or extract a sips worth of gin and tonic separately and then mix them together -- it's the same thing.
