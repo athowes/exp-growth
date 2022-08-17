@@ -55,7 +55,7 @@ head(subset_counts)
 ```
 For development of the initial script, we subset `counts` data, which has `r nrow(counts)` rows and is of size `r format(object.size(counts), units = "auto")`, to just the first `r subset_length` rows of size `format(object.size(subset_counts), units = "auto")`.
 
-## Developing an initial scriptß
+## Developing an initial script
 
 ### `profvis`
 
@@ -155,6 +155,8 @@ ggplot2::autoplot(glm_bm)
 
 #### Tidying the generalised linear model
 
+* The R code for `tidy.glm` is given here: https://github.com/tidymodels/broom/blob/520a933cd84974c42ec3ba8df9a37c59634ce211/R/stats-glm-tidiers.R
+
 ```{r}
 before_tidy <- function(nrows) {
   df <- head(counts, n = nrows)
@@ -171,23 +173,37 @@ before_tidy <- function(nrows) {
   return(fits)
 }
 
-before_tidy(1)
+tidy_bm <- bench::press(
+  nrows = nrows_small,
+  {
+    fits <- before_tidy(nrows = 10)
+    
+    bench::mark(
+      tidy = {
+        mutate(fits, fit = purrr::map(fit, ~possibly_tidy))
+      }
+    )
+  }
+)
 
-#' The following crashes for some reason..
-# tidy_bm <- bench::press(
-#   nrows = nrows_small,
-#   {
-#     fits <- before_tidy(nrows = nrows)
-#     bench::mark(
-#       {
-#         fits <- dplyr::mutate(fits, fit = purrr::map(fit, broom::tidy, conf.int = TRUE))
-#         fits <- unnest(fits, fit)
-#       }
-#     )
-#   }
-# )
-# 
-# tidy_bm
+tidy_conf_bm <- bench::press(
+  nrows = nrows_small,
+  {
+    fits <- before_tidy(nrows = 10)
+    
+    bench::mark(
+      tidy_conf = {
+        mutate(fits, fit = purrr::map(fit, ~possibly_tidy, conf.int = TRUE))
+      }
+    )
+  }
+)
+
+tidy_bm
+tidy_conf_bm
+
+ggplot2::autoplot(tidy_bm)
+ggplot2::autoplot(tidy_conf_bm)
 ```
 
 ## Ideas and notes for continuation of this document

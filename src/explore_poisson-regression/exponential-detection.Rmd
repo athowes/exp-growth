@@ -14,7 +14,7 @@ output:
 abstract: |
     **Background** Detecting exponential growth is a central goal of the Nucleic Acid Observatory (NAO). Regression using a Poisson generalised linear model (GLM) is possibly the simplest statistical approach to detecting exponential growth.
     
-    **Task** In this notebook, originally by Mike and extended by Adam, we use simple simulations and mathematical analysis to further our understanding of 
+    **Task** In this notebook, originally by Mike and extended by Adam, we use simple simulations and mathematical analysis to further our understanding of exponential growth detection.
     
     **Findings** 
     
@@ -62,7 +62,7 @@ Let $x_t$ be the number of detections at time $t$ and $X_t$ be the cumulative nu
 The number of detections will most clearly appear to be growing exponentially once $\lambda_t \gg 1$.
 However, perhaps we can infer positive exponential growth long before this point using an appropriate statistical analysis that accounts for the sporadic (Poisson) nature of detections.
 
-## First simulated example
+# First simulated example
 
 ```{r}
 r <- 0.1
@@ -165,8 +165,8 @@ p3 <- fits %>%
   ggplot(aes(today, y = estimate, ymax = conf.high, ymin = conf.low, col = above_zero)) +
   geom_hline(yintercept = c(0, r), color = "black", linetype = "dashed") +
   geom_pointrange(alpha = 0.5) +
-  scale_colour_manual(values = cbpalette[c(2, 3)]) +
-  labs(x = "Day", y = "Estimated slope", col = "CI contains zero?")
+  scale_colour_manual(values = cbpalette[c(3, 2)]) +
+  labs(x = "Day", y = "Estimated slope", col = "CI above zero?")
 
 p3
 ```
@@ -202,7 +202,7 @@ fits %>%
   filter(today == first_detection + 1)
 ```
 
-That this issue could be fixed by a Bayesian model which doesn't perfectly interpolate the data (it would be regularlised using priors).
+This issue could be fixed by a Bayesian model which doesn't perfectly interpolate the data (it would be regularlised using priors).
 
 # A slower growing pandemic
 
@@ -313,9 +313,9 @@ $$
 \mathbb{E}(\psi) = \sum_{t = 0}^\infty \exp\left( {- \sum_{s \leq t} c \exp \left( -rs \right) } \right) \\
 = \sum_{t = 0}^\infty \prod_{s \leq t} \exp\left({- c \exp \left( -rs \right) } \right) \\
 $$
-(I've not said anything useful about $c$ or $r$ here yet!)
+(I've not said anything useful about $c$ or $r$ here yet! Perhaps you, reader, can find something interesting to analyze about this equation.)
 
-To take another approach, let's just plot the different CDF and PDF curves, varying $r$ and $c$:
+Rather than analyzing the above equation, let's just plot the different CDF and PDF curves, varying $r$ and $c$:
 
 ```{r}
 r_seq <- 10^{seq(-3, -1, by = 0.1)}
@@ -449,12 +449,24 @@ hotstart_poisson_glm <- function(times) {
 
 Let's have a closer look at the time that the first detection starts:
 
-```{r}
+```{r warning=FALSE}
 p2 & xlim(c(first_detection - 10, first_detection + 100))
 ```
 
 The confidence interval for the $\beta$ parameter is above zero for many days following the first detections.
 After detecting a single case, having not detected one for hundreds of days, it's not really possible that there just happened to be zeros for that long, so there must be some kind of slope to the rate.
+This occurs because the Poisson GLM model we specify is not very flexible: the only possible relationship we have allowed so far is linear, that $\log(\lambda_t) = \beta_0 + \beta t$.
+
+As a demonstration, suppose we consider another model specification $\log(\lambda_t) = \beta_0 + \beta \log(t)$.
+
+```{r}
+fits_log <- tibble(today = seq(first_detection + 1, 1000)) %>%
+  mutate(
+    fit = map(today, ~glm(x ~ log(t), family = poisson, data = sim[seq(.x),])),
+    fit = map(fit, broom::tidy, conf.int = TRUE)
+  ) %>%
+  unnest(fit)
+```
 
 # SARS-CoV-2 simulation
 
