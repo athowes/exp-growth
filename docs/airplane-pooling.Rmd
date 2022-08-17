@@ -29,10 +29,10 @@ $$
     V = \sum_{f = 1, 2} V_{f}.
 $$
 The pooled concentration of the pathogen and other nucleic acids in are
-\begin{align}
-    C_{I} &= \frac{A_{I}}{V_{f}}, \\
-    C_{U} &= \frac{A_{U}}{V_{f}}. 
-\end{align}
+$$
+    C_{I} = \frac{A_{I}}{V_{f}}, \\
+    C_{U} = \frac{A_{U}}{V_{f}}. 
+$$
 
 ## Equivalent sampling approaches
 
@@ -49,3 +49,28 @@ This means that there are (at least) two equivalent ways that we could arrive at
 2. The wastewater from each plane is sent into a pipe, which operates such that the pipe separates a fraction $f$ of each plane's wastewater into a separate tank
 
 Similarly, if you wanted a sip of gin and tonic you could either make up a whole drink and take a sip, or extract a sips worth of gin and tonic separately and then mix them together -- it's the same thing.
+
+## Sequencing bias
+
+The number of mapped reads from the pathogen of interest $M_{I, f}$ for a given flight $f$ is given by
+$$
+  M_{I, f} = \frac{A_{I, f} B_{I, f}}{A_{I, f} B_{I, f} + A_{U, f}} \times M_{\text{tot}, f},
+$$
+where $B_{I, f}$ is the differential sequencing efficiency the pathogen of interest as compared with everything else on flight $f$, which we consider to be
+$$
+  B_{I, f} = \frac{E_{I, f}}{E_{U, f}}.
+$$
+If the wastewater is pooled together, then weighted sequencing efficiencies are given by
+$$
+  E_I = \frac{\sum_{f = 1, 2} A_{I, f} E_{I, f}}{\sum_{f = 1, 2} A_{I, f}}, \\
+  E_U = \frac{\sum_{f = 1, 2} A_{U, f} E_{U, f}}{\sum_{f = 1, 2} A_{U, f}},
+$$
+and the weighted differential sequencing efficiency is given by
+$$
+B_I = \frac{E_I}{E_U}.
+$$
+
+The number of mapped reads from the pathogen of interest $M_{I}$ for the pooled wastewater is then given by
+$$
+  M_{I} = \frac{A_{I} B_{I}}{A_{I} B_{I} + A_{U}} \times M_\text{tot},
+$$

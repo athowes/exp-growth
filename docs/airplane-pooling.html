@@ -2827,10 +2827,10 @@ together. Then the pooled amounts<a href="#fn1" class="footnote-ref" id="fnref1"
 \end{align}\]</span> and the total volume of wastewater is <span class="math display">\[
     V = \sum_{f = 1, 2} V_{f}.
 \]</span> The pooled concentration of the pathogen and other nucleic
-acids in are <span class="math display">\[\begin{align}
-    C_{I} &amp;= \frac{A_{I}}{V_{f}}, \\
-    C_{U} &amp;= \frac{A_{U}}{V_{f}}.
-\end{align}\]</span></p>
+acids in are <span class="math display">\[
+    C_{I} = \frac{A_{I}}{V_{f}}, \\
+    C_{U} = \frac{A_{U}}{V_{f}}.
+\]</span></p>
 </div>
 <div id="equivalent-sampling-approaches" class="section level2">
 <h2>Equivalent sampling approaches</h2>
@@ -2858,6 +2858,31 @@ separate tank</li>
 <p>Similarly, if you wanted a sip of gin and tonic you could either make
 up a whole drink and take a sip, or extract a sips worth of gin and
 tonic separately and then mix them together – it’s the same thing.</p>
+</div>
+<div id="sequencing-bias" class="section level2">
+<h2>Sequencing bias</h2>
+<p>The number of mapped reads from the pathogen of interest <span class="math inline">\(M_{I, f}\)</span> for a given flight <span class="math inline">\(f\)</span> is given by <span class="math display">\[
+  M_{I, f} = \frac{A_{I, f} B_{I, f}}{A_{I, f} B_{I, f} + A_{U, f}}
+\times M_{\text{tot}, f},
+\]</span> where <span class="math inline">\(B_{I, f}\)</span> is the
+differential sequencing efficiency the pathogen of interest as compared
+with everything else on flight <span class="math inline">\(f\)</span>,
+which we consider to be <span class="math display">\[
+  B_{I, f} = \frac{E_{I, f}}{E_{U, f}}.
+\]</span> If the wastewater is pooled together, then weighted sequencing
+efficiencies are given by <span class="math display">\[
+  E_I = \frac{\sum_{f = 1, 2} A_{I, f} E_{I, f}}{\sum_{f = 1, 2} A_{I,
+f}}, \\
+  E_U = \frac{\sum_{f = 1, 2} A_{U, f} E_{U, f}}{\sum_{f = 1, 2} A_{U,
+f}},
+\]</span> and the weighted differential sequencing efficiency is given
+by <span class="math display">\[
+B_I = \frac{E_I}{E_U}.
+\]</span></p>
+<p>The number of mapped reads from the pathogen of interest <span class="math inline">\(M_{I}\)</span> for the pooled wastewater is then
+given by <span class="math display">\[
+  M_{I} = \frac{A_{I} B_{I}}{A_{I} B_{I} + A_{U}} \times M_\text{tot},
+\]</span></p>
 </div>
 <div class="footnotes footnotes-end-of-document">
 <hr />
