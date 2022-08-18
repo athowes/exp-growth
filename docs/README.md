@@ -1,5 +1,6 @@
 ## Exponential growth detection
 
+* [all-hands](https://athowes.github.io/exp-growth/all-hands): memo on Poisson regression for all-hands meeting
 * [egd-benchmark](https://athowes.github.io/exp-growth/egd-benchmark): benchmarking and iterating exponential growth detection code computational performance
 * [egd-metagenomic](https://athowes.github.io/exp-growth/egd-metagenomic): testing statistical properties of exponential growth detection on metagenomic time-series data
 * [exponential-detection](https://athowes.github.io/exp-growth/exponential-detection): simple simulation and mathematical analysis of exponential growth
