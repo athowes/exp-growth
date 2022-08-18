@@ -176,7 +176,7 @@ before_tidy <- function(nrows) {
 tidy_bm <- bench::press(
   nrows = nrows_small,
   {
-    fits <- before_tidy(nrows = 10)
+    fits <- before_tidy(nrows = nrows)
     
     bench::mark(
       tidy = {
@@ -189,7 +189,7 @@ tidy_bm <- bench::press(
 tidy_conf_bm <- bench::press(
   nrows = nrows_small,
   {
-    fits <- before_tidy(nrows = 10)
+    fits <- before_tidy(nrows = nrows)
     
     bench::mark(
       tidy_conf = {
@@ -217,3 +217,4 @@ ggplot2::autoplot(tidy_conf_bm)
 * Try forecasting the requirements for each step at different numbers of $k$-mers (just by extrapolation)
 * Is `tidy` the slow running thing? Try it without `conf.int = TRUE`
 * Is there a way to specify one call to `glm` with inputs `ec` within the formula and gets what we're aiming for?
+* Test running `furrr` 
