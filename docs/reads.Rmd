@@ -1,0 +1,46 @@
+---
+title: "Read numbers calculation"
+author: "Adam Howes"
+output:
+  html_document:
+    toc: yes
+    toc_float: true
+    toc_collapsed: true
+    df_print: paged
+    theme: lumen
+---
+
+**Status:** typing up check of Jeff's calculation from meeting with Mike, Jeff, Charlie
+
+* Length of genome $G$
+* $k$-mer length $K$
+* Read length $R$
+* Fraction of reads covering a particular $k$-mer is $q = \frac{R - K}{G}$
+* Suppose there are $N$ reads total
+* The fraction of those reads which are from SARS-CoV-2 is $p$
+  * A paper found that 0.0004% of reads are from SARS-Cov-2
+* The total number of SARS-CoV-2 reads is $C = Np$
+* $C \times q = C_k$
+
+```{r}
+G <- 30 * 10^3
+K <- 40
+R <- 150
+q <- (R - K) / G
+S <- 0.0004 / 100
+Ck <- 1
+```
+
+The required number of reads to have on average one read from any given SARS-CoV-2 $k$-mer is:
+
+```{r}
+required_reads <- signif(Ck / (q * S), 1)
+required_reads
+```
+
+This corresponds to the following number of basepairs (just multiplying by the read length):
+
+```{r}
+required_basepairs <- R * required_reads
+required_basepairs
+```
