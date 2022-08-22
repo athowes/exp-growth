@@ -240,13 +240,13 @@ counts <- read.table("data/counts-1pct-sample.tsv", header = TRUE)
 subset_size <- 1000
 ```
 
-The real data we use has `r `nrow(counts)` total $k$-mers, and looks like:
+The real data we use has `r nrow(counts)` total $k$-mers, and looks like:
 
 ```{r}
 head(counts)
 ```
 
-We will use a subset of size `r subset_size`, plotted below:
+We will use a subset of size `r subset_size`, and pivot the data structure as follows:
 
 ```{r}
 counts_subset <- filter(counts, ec <= subset_size)
@@ -261,7 +261,11 @@ counts_subset_long <- counts_subset %>%
     names_transform = list(day = as.integer, count = as.integer)
   )
 
-#' Plot the time series
+head(counts_subset_long, n = 10)
+```
+The data is now in a form where it can be easily plotted:
+
+```{r}
 ggplot(counts_subset_long, aes(x = day, y = count, group = ec)) +
   geom_line(alpha = 0.05) +
   theme_minimal() +

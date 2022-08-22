@@ -99,7 +99,7 @@ The number of times that each expression is run is determined by... [TODO].
 
 ```{r}
 nrows_small <- 10^{1:3}
-nrows_big <- 10^{1:6}
+nrows_big <- 10^{1:5}
 
 pivot_bm <- bench::press(
   nrows = nrows_big,
