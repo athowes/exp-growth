@@ -459,7 +459,7 @@ This occurs because the Poisson GLM model we specify is not very flexible: the o
 
 As a demonstration, suppose we consider another model specification $\log(\lambda_t) = \beta_0 + \beta \log(t)$.
 
-```{r}
+```{r warning=FALSE}
 fits_log <- tibble(today = seq(first_detection + 1, 1000)) %>%
   mutate(
     fit = map(today, ~glm(x ~ log(t), family = poisson, data = sim[seq(.x),])),
