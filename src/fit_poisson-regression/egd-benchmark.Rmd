@@ -98,11 +98,10 @@ The number of times that each expression is run is determined by... [TODO].
 #### Pivoting
 
 ```{r}
-nrows_small <- 10^{1:3}
-nrows_big <- 10^{1:5}
+nrows_experiment <- 10^{1:4}
 
 pivot_bm <- bench::press(
-  nrows = nrows_big,
+  nrows = nrows_experiment,
   {
     df <- head(counts, n = nrows)
     bench::mark(
@@ -127,7 +126,7 @@ ggplot2::autoplot(pivot_bm)
 
 ```{r}
 glm_bm <- bench::press(
-  nrows = nrows_small,
+  nrows = nrows_experiment,
   {
     df <- head(counts, n = nrows)
     df_long <- pivot_longer(
@@ -174,7 +173,7 @@ before_tidy <- function(nrows) {
 }
 
 tidy_bm <- bench::press(
-  nrows = nrows_small,
+  nrows = nrows_experiment,
   {
     fits <- before_tidy(nrows = nrows)
     
@@ -187,7 +186,7 @@ tidy_bm <- bench::press(
 )
 
 tidy_conf_bm <- bench::press(
-  nrows = nrows_small,
+  nrows = nrows_experiment,
   {
     fits <- before_tidy(nrows = nrows)
     
