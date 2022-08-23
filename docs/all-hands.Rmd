@@ -12,6 +12,8 @@ output:
     df_print: paged
     code_folding: hide
     theme: lumen
+abstract: |
+  To write.
 ---
 
 ```{r setup, class.source = 'fold-hide'}
@@ -36,65 +38,161 @@ theme_set(theme_minimal())
 
 # Background
 
-* Any biological threat will necessarily undergo exponential growth
-* Detecting exponential growth is a promising computational strategy for a threat-agnostic early warning system [@consortium2021global]
-* OKR 1.4. is
+Any biological threat will necessarily undergo exponential growth.
+Detecting this growth pattern is therefore a promising computational strategy for a threat-agnostic early warning system, as described by @consortium2021global.
 
-> Develop an initial (computational) pipeline for exponential growth detection and execute it on simulated and spike-in metagenomic data
+To develop and begin to evaluate this idea, this quarter we aim to:
 
-* This objective may be divided into a bioinformatics step and a statistics step
-* The current output of the bioinformatics step is a collection of $k$-mer equivalence class time series
-  * I'm just going to write $k$-mer rather than $k$-mer equivalence class
-* Given these time series, we would like to infer which of them are in an exponential growth regime, using some hypothetical function `egd()`
-* It will be computationally cheaper if `egd()` operates on each time-series independently
-  * There is some structure in the data, so this may be losing some statistical power
-  * An example of this structure is that we expect species to be increasing exponentially, and each species to have a number of $k$-mers which increase exponentially
-* Possibly the simplest approach to exponential growth detection is Poisson regression
+> OKR 1.4: Develop an initial (computational) pipeline for exponential growth detection and execute it on simulated and spike-in metagenomic data
 
-# What is Poisson regression, and how would it enable exponential growth detection
+This objective can roughly divided into a bioinformatics stage and a statistics stage.
+The bioinformatics stage was the subject of Jeff's [memo](https://docs.google.com/document/d/1bPfHMmoYDElqgGCwHjPxtjiUWQ8MC_Vj4nW8sU_T2fg/edit), and currently outputs a collection of $k$-mer equivalence class time series.
 
-```{r poisson-plot, warning=FALSE, message=FALSE, fig.cap="The Poisson distribution."}
+Given these time series, the goal for the statistical stage is to infer which are in an exponential growth regime, using some hypothetical function `egd()`.
+This function should be capable of identifying threats without an insurmountable number of false positives.
+It also needs to be computationally efficient enough to scale to a large number of time series being prohibitively slow.
+
+# Why might Poisson regression be suitable
+
+```{r poisson-plot, warning=FALSE, message=FALSE, fig.cap="Example of an exponential curve (blue) with randomly generated count data (orange)."}
+set.seed(1)
+
+r <- 0.2
+
 df <- data.frame(t = 1:14) %>%
-  mutate(y = rpois(t, lambda = 10))
+  mutate(
+    lambda = 0.1 * exp(r * t),
+    count = rpois(t, lambda = lambda)
+  )
 
-plot1 <- data.frame(x = 0:30) %>%
+ggplot(df, aes(x = t, y = count)) +
+  geom_point(col = cbpalette[3], size = 2.5) +
+  geom_line(aes(y = lambda), col = cbpalette[1]) +
+  theme_minimal() +
+  labs(x = "Day", y = "Number of copies observed")
+```
+
+Our metagenomic data has two important properties that we would like `egd()` to take into account:
+
+1. The observation process is random
+1. The counts we observe take discrete, integer values (like "0" or "239")
+
+Both of these features make it *harder* to detect exponential growth, as illustrated by Figure \@ref(fig:poisson-plot):
+the observed orange counts are noisy, sometimes increasing and sometimes decreasing, unlike the monotonically increasing blue line;
+furthermore the blue line can take any value, whereas the orange counts are only ever 0, 1, or 2 (in this example).
+
+One of the simplest probability distributions suitable for count data is the Poisson distribution (Appendix \@ref(poisson)).
+To infer exponential growth, we can use a method similar to linear regression based on the Poisson distribution, called Poisson regression.
+In Poisson regression, we fit a line $\beta_0 + \beta t$ to the data, then exponentiate it.
+In mathematical notation, this looks like
+$$
+\lambda_t = \exp(\beta_0 + \beta t)
+$$
+where $\lambda_t$ is the rate parameter of the Poisson distribution at time $t$.
+The parameter $\beta_0$ is called the intercept and the parameter $\beta$ is called the slope.
+
+Poisson regression is a well-studied and interpretable statistical approach.
+Many tools have been developed to work with Poisson regression, including algorithms that we can use to easily obtain estimates for the parameters $\beta_0$ and $\beta$.
+To determine if a time-series is exponentially growing, we can look at inference^[By the term "inference", we mean a point estimate $\hat \beta$, a (95%) confidence interval $\hat \beta \pm 1.96 \times \text{se}(\hat \beta)$, or a posterior distribution $p(\beta \, | \, y)$.] for the slope $\beta$.
+If it looks like $\beta$ is large, then we can be more sure that we're looking at exponential growth.
+
+```{r}
+fit <- glm(count ~ 1 + t, family = "poisson", data = df)
+
+round(fit$coefficients, 3)
+
+p_val <- summary(fit)$coefficients[2, 4]
+```
+
+```{r inference-plot, warning=FALSE, message=FALSE, fig.cap="The green line shows the fitted model."}
+df$lambda_mean <- fit$fitted.values
+
+ggplot(df, aes(x = t, y = count)) +
+  geom_point(col = cbpalette[3], size = 2.5) +
+  geom_line(aes(y = lambda), col = cbpalette[1]) +
+  geom_line(aes(y = lambda_mean), col = cbpalette[2]) +
+  theme_minimal() +
+  labs(x = "Day", y = "Number of copies observed")
+```
+
+Figure \@ref(fig:inference-plot) below shows the fitted line $\exp(-1.227 + 0.095t)$ obtained from the model.
+Here the extent of the exponential growth is under-estimated^[The $p$-value for $\beta \neq 0$ is `r p_val`: too high to be statistically significant at a 95% confidence level].
+
+In wider testing, we have found that Poisson regression [works well in simple situations](https://athowes.github.io/exp-growth/egd-metagenomic).
+We have also identified a number of concerns and open questions to be addressed as we continue develop the apprach and begin testing on more realistic, challenging situations.
+
+# Challenges ahead
+
+## Inflexibility
+
+The model is not very flexible: it can only describe exponential growth and decay (see Figure \@ref(fig:exponential-curves))
+A more flexible model might allow other patterns, such as...
+
+## Issue with low counts
+
+```{r counter-example}
+y <- c(rep(0, 13), 1)
+
+data.frame(
+  t = 1:14,
+  y = c(rep(0, 13), 1)
+) %>%
+  ggplot(aes(x = t, y = y)) +
+  geom_point(col = cbpalette[3], size = 2.5) +
+  theme_minimal() +
+  labs(x = "Day", y = "Number of copies observed")
+```
+
+The model behaves strangely in some cases.
+If a "1" is observed after many days of "0" then it's possible to perfectly fit a line through the data by putting the intercept $\beta_0$ as negative and the slope $\beta$ as positive
+This issue can be remedied using regularisation, in other words placing a priors.
+
+## Multiple hypothesis testing
+
+To write.
+
+## Unaccounted for sources of noise and bias
+
+In reality, there are numerous sources of noise and bias, including complex epidemic, surveillance, shedding, processing, and sequencing processes, which we do not directly take into account.
+How much these complexities matter is an open question which the modelling team is beginning to explore, first by writing a generative model with modules for each of these processes.
+
+One approach for working with relative abundances is to use normalisation via an offset term.
+We could normalise the counts by some measure of sequencing effort, or the count of some consistent reference species.
+
+# Is Poisson regression computationally suitable
+
+The following table shows how long our initial script for running Poisson regression takes when there are 10, 100, 1000 and 10000 rows.
+This is quite slow, though likely significant improvements can be made.
+
+Owing to Poisson regression's simplicity, we expect it to be computationally cheaper than other possible statistical approaches.
+More sophisticated approaches, such as modelling the time series jointly, are likely to be more expensive.
+
+# Conclusion
+
+Poisson regression is a reasonable first exponential growth detection approach, and there is a lot of room for iteration and improvement.
+
+# Appendix
+
+## The Poisson distribution {#poisson}
+
+The Poisson distribution assumes events occur
+
+1. at a constant rate, and
+2. independently
+
+We write $y \sim \text{Pois}(\lambda)$ to denote that $y$ follows a Poisson distribution with rate parameter $\lambda$.
+
+```{r}
+data.frame(x = 0:25) %>%
   mutate(y = dpois(x, lambda = 10)) %>%
   ggplot(aes(x = x, y = y)) +
     geom_col(fill = cbpalette[5], alpha = 0.7) +
-    geom_dotplot(data = df, aes(x = y), fill = cbpalette[3], col = NA, inherit.aes = FALSE) +
     theme_minimal() +
     lims(y = c(0, 0.13)) +
     labs(x = "Number of copies observed", y = "Probability")
-
-plot2 <- ggplot(df, aes(x = t, y = y)) +
-  geom_point(col = cbpalette[3], size = 2.5) +
-  theme_minimal() +
-  geom_hline(yintercept = 10, linetype = "dashed") +
-  labs(x = "Day", y = "Number of copies observed")
-
-cowplot::plot_grid(plot1, plot2, ncol = 1)
 ```
 
-* The Poisson distribution assumes events occur (1) at a constant rate, (2) independently
-* We write $y \sim \text{Pois}(\lambda)$ to denote that $y$ follows a Poisson distribution with rate parameter $\lambda$
-* If we expect to see a certain number of a particular $k$-mer per day, then the Poisson distribution is a good model for the randomness in how many $k$-mers we actually see
-* Imagine that we have observations from 14 days $(y_1, y_2, \ldots, y_{14})$
-* This type of data is called a time-series
-* We can suppose the data point from each day $t$ is generated by a Poisson distribution with rate $\lambda_t$ so that $y_i \sim \text{Pois}(\lambda_t)$
-* Explanation of Figure \@ref(fig:poisson-plot)
-* To detect exponential growth we would prefer to be looking at the rate parameters $(\lambda_1, \lambda_2, \ldots, \lambda_{14})$, not the noisy observations
-* The method we use to learn the rate parameters is called Poisson regression
-* Poisson regression is similar to linear regression
-* While in linear regression we would just fit a line to the data, in Poisson regression the line must be transformed so that it's always above zero, because rate parameters can be negative
-* The way we do this is to use a link function which takes any number and returns a positive number, in particular the exponential function
-* The result is a model that looks like $\lambda_t = \exp(\beta_0 + \beta t)$
-  * $\beta_0$ is called the intercept
-  * $\beta$ is called the slope
-* We can use statistical algorithms to fit this model and obtain estimates for all the parameters
-* This model is convenient, because to determine if a time-series looks to be exponentially growing we can just look at inference for the slope parameter
-* By "inference" I mean: a point estimate $\hat \beta$, a (95%) confidence interval $\hat \beta \pm 1.96 \times \text{se}(\hat \beta)$, or a posterior distribution $p(\beta \, | \, y)$
-
-# Is Poisson regression statistically suitable
+## Limited curve shapes
 
 ```{r exponential-curves, fig.cap="Effects of changing the slope and intercept parameter on fitted line."}
 beta_seq <- seq(-0.3, 0.3, length.out = 20)
@@ -125,38 +223,5 @@ plot4 <- ggplot(df_beta0, aes(x = t, y = lambda, col = beta0, group = beta0)) +
 
 cowplot::plot_grid(plot3, plot4)
 ```
-
-## Benefits
-
-* Simplicity
-* Takes into account randomness in observed $k$-mers
-* Shown to work in easy situations
-  * Add plot showing simulated baseline and exponential behaviour, and $p$-values from Poisson regression getting all of them right
-
-## Concerns
-
-* The model is not very flexible
-  * If data looks to be increasing the only way available to the model to describe that is to change the slope parameter, but this necessitates either exponential growth or decay
-  * A more flexible model might allow other patterns
-  * Explanation of Figure \@ref(fig:exponential-curves)
-* The model behaves strangely in some cases
-  * If a new $k$-mer is observed after some number of days it's possible to perfectly fit the model through the data by putting the intercept $\beta_0$ as negative and the slope $\beta$ as positive
-  * This issue can be remedied using regularisation -- in other words placing a prior on the intercept
-  * Create a plot showing this problematic behaviour
-
-# Is Poisson regression computationally suitable
-
-* We have developed a script for running Poisson regression on a $k$-mer equivalence class table
-* The $k$-mer equivalence class table looks like this
-* The steps of the script are:
-  1. Pivot the table
-  2. Apply a Poisson regression model to each 14 rows of the pivoted table
-  3. Use a function to tidy up the results
-* Here is a table showing how long each of the above steps takes for 10, 100, 1000, 10000 rows ($k$-mer equivalence classes)
-* At present this seems quite slow, but there are likely things that can be done to speed it up
-
-# Conclusion
-
-* Poisson regression is a reasonable first exponential growth detection approach, but there is a lot of room for iteration and improvement
 
 ## Bibliography {-}
