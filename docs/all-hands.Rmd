@@ -282,7 +282,7 @@ In a similar vein, we might also want to decide whether we care more about detec
 <!-- If a "1" is observed after many days of "0" then it's possible to perfectly fit a line through the data by putting the intercept $\beta_0$ as negative and the slope $\beta$ as positive -->
 <!-- This issue can be remedied by placing priors to provide some form of regularisation. -->
 
-# Computationally suitability
+# Computational suitability
 
 The following table shows how long our initial script for running Poisson regression takes when there are 10, 100, 1000 and 10000 rows:
 
