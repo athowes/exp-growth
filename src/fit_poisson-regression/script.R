@@ -2,4 +2,3 @@
 # setwd("src/fit_poisson-regression")
 
 rmarkdown::render("egd-metagenomic.Rmd")
-rmarkdown::render("egd-benchmark.Rmd")

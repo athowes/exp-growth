@@ -1,0 +1,20 @@
+script: script.R
+
+artefacts:
+  - data:
+      description: Exponential growth detection benchmarking
+      filenames:
+        - egd-benchmark.html
+
+resources:
+  - egd-benchmark.Rmd
+  - data/
+
+packages:
+  - dplyr
+  - ggplot2
+  - rstan
+  - stringr
+  - tidyr
+  - bench
+  - purrr

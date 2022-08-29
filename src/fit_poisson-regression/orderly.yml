@@ -5,7 +5,6 @@ artefacts:
       description: Exponential growth detection on metagenomic data
       filenames:
         - egd-metagenomic.html
-        - egd-benchmark.html
   - data:
       description: Inference output
       filenames:
