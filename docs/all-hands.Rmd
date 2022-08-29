@@ -258,29 +258,31 @@ Another decision we have to make is if we care about detecting exponential regim
 In the later case, accurately estimating the growth rate $r$ is essential, but in the former case we only care about the growth rate in so far as it is above zero.
 In a similar vein, we might also want to decide whether we care more about detecting high growth more than we care about low growth.
 
-<!-- ## Behaviour for new observations -->
+## Behaviour for new observations
 
-<!-- ```{r counter-example, warning=FALSE} -->
-<!-- df_new <- data.frame( -->
-<!--   t = 1:14, -->
-<!--   count = c(rep(0, 13), 1) -->
-<!-- ) -->
+*Note: this section was omitted from the memo as originally presented.*
 
-<!-- fit_new <- glm(count ~ 1 + t, family = "poisson", data = df_new) -->
+```{r counter-example, warning=FALSE}
+df_new <- data.frame(
+  t = 1:14,
+  count = c(rep(0, 13), 1)
+)
 
-<!-- df_new$lambda_mean <- fit_new$fitted.values -->
-<!-- df_new$eta_mean <- fit_new$linear.predictors -->
+fit_new <- glm(count ~ 1 + t, family = "poisson", data = df_new)
 
-<!-- ggplot(df_new, aes(x = t, y = log(count))) + -->
-<!--   geom_point(col = cbpalette[3], size = 2.5) + -->
-<!--   geom_line(aes(y = eta_mean), col = cbpalette[2]) + -->
-<!--   theme_minimal() + -->
-<!--   labs(x = "Day", y = "log(Number of copies observed)") -->
-<!-- ``` -->
+df_new$lambda_mean <- fit_new$fitted.values
+df_new$eta_mean <- fit_new$linear.predictors
 
-<!-- The model behaves strangely in some cases. -->
-<!-- If a "1" is observed after many days of "0" then it's possible to perfectly fit a line through the data by putting the intercept $\beta_0$ as negative and the slope $\beta$ as positive -->
-<!-- This issue can be remedied by placing priors to provide some form of regularisation. -->
+ggplot(df_new, aes(x = t, y = log(count))) +
+  geom_point(col = cbpalette[3], size = 2.5) +
+  geom_line(aes(y = eta_mean), col = cbpalette[2]) +
+  theme_minimal() +
+  labs(x = "Day", y = "log(Number of copies observed)")
+```
+
+The model behaves strangely in some cases.
+If a "1" is observed after many days of "0" then it's possible to perfectly fit a line through the data by putting the intercept $\beta_0$ as negative and the slope $\beta$ as positive.
+This issue can be remedied by placing priors to provide some form of regularisation.
 
 # Computational suitability
 
