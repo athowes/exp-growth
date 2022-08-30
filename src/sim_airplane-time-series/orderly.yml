@@ -7,6 +7,8 @@ artefacts:
   - data:
       description: Simulated airplane metagenomics time-series data
       filenames:
+        - airplane-simulations.rds
+        - seir-compartments.pdf
         - airplane-infections.pdf
         - airplane-reads-deterministic.pdf
         - airplane-reads-stochastic.pdf
