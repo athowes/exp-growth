@@ -17,7 +17,7 @@ mod <- stoch_seir_dust$new(
   sigma = 1,
   population_size = 10^6,
   start_infections = 10,
-  capacity_per_flight = 2000,
+  capacity_per_flight = 200, # Capacity of a Boeing 737 is around 200
   num_flights = 50,
   num_flightsAB = 25,
   dt = dt,
@@ -76,22 +76,18 @@ airplane_infections_df <- indiv_flight_infections %>%
   group_by(flight, day) %>%
   summarise(infections = sum(infections))
 
-final_day <- 25
-
 pdf("airplane-infections.pdf", h = 5, w = 6.25)
 
 ggplot(airplane_infections_df, aes(x = day, y = infections, group = day)) +
   geom_boxplot(fill = NA, outlier.colour = NA, alpha = 0.1) +
   geom_jitter(size = 0.5, width = 0.15, alpha = 0.5) +
   theme(legend.position = "none") +
-  lims(x = c(0, final_day), y = c(0, 20)) +
   labs(x = "Time (days)", y = "Number of infections on each flight") +
   theme_minimal()
 
 ggplot(airplane_infections_df, aes(x = day, y = infections, group = flight)) +
   geom_line(alpha = 0.5) +
   theme(legend.position = "none") +
-  lims(x = c(0, final_day), y = c(0, 20)) +
   labs(x = "Time (days)", y = "Number of infections on each flight") +
   theme_minimal()
 
@@ -122,14 +118,12 @@ ggplot(airplane_reads_df, aes(x = day, y = reads, group = day)) +
   geom_boxplot(fill = NA, outlier.colour = NA, alpha = 0.1) +
   geom_jitter(size = 0.5, width = 0.15, alpha = 0.5) +
   theme(legend.position = "none") +
-  lims(x = c(0, final_day), y = c(0, 12.5)) +
   labs(x = "Time (days)", y = "Number of reads from each flight's wastewater") +
   theme_minimal()
 
 ggplot(airplane_reads_df, aes(x = day, y = reads, group = flight)) +
   geom_line(alpha = 0.5) +
   theme(legend.position = "none") +
-  lims(x = c(0, final_day), y = c(0, 12.5)) +
   labs(x = "Time (days)", y = "Number of reads from each flight's wastewater") +
   theme_minimal()
 
@@ -160,31 +154,32 @@ ggplot(airplane_reads_df, aes(x = day, y = reads, group = day)) +
   geom_boxplot(fill = NA, outlier.colour = NA, alpha = 0.1) +
   geom_jitter(size = 0.5, width = 0.15, alpha = 0.5) +
   theme(legend.position = "none") +
-  lims(x = c(0, final_day), y = c(0, 12.5)) +
   labs(x = "Time (days)", y = "Number of reads from each flight's wastewater") +
   theme_minimal()
 
 ggplot(airplane_reads_df, aes(x = day, y = reads, group = flight)) +
   geom_line(alpha = 0.5) +
   theme(legend.position = "none") +
-  lims(x = c(0, final_day), y = c(0, 12.5)) +
   labs(x = "Time (days)", y = "Number of reads from each flight's wastewater") +
   theme_minimal()
 
 dev.off()
 
-
 # Running over a grid of parameter values ----
 
 # Create (exhaustive) experimental design
 # TODO: Decide / get advice on particular parameter combinations / experimental conditions to be investigated
+
+# Number of times each experiment is repeated
+n_replicates <- 10
+
 pars <- expand.grid(
   "beta" = 2,
   "gamma" = 1,
   "sigma" = 1,
   "population_size" = 10^6,
   "start_infections" = 10,
-  "capacity_per_flight" = 2000,
+  "capacity_per_flight" = 200,
   "num_flights" = 50,
   "num_flightsAB" = 25,
   "dt" = 0.05,
@@ -193,7 +188,8 @@ pars <- expand.grid(
   "volume_wastewater" = 500 * 10^6,
   "shedding_freq" = 1,
   "bias" = 1,
-  "m_tot" = c(10^4, 10^5, 10^6, 10^7, 10^8)
+  "m_tot" = c(10^4, 10^5, 10^6, 10^7, 10^8, 10^9),
+  "replicate" = 1:n_replicates
 )
 
 run_simulation <- function(beta, gamma, sigma, population_size, start_infections,
@@ -245,7 +241,32 @@ run_simulation <- function(beta, gamma, sigma, population_size, start_infections
   return(airplane_reads_df)
 }
 
+# A heuristic where we have detection when the total number of reads exceeds n
+first_day_n_reads <- function(df, n = 10) {
+  df %>%
+    group_by(day) %>%
+    summarise(reads = sum(reads)) %>%
+    filter(reads >= 10) %>%
+    pull(day) %>%
+    min()
+}
+
 out <- pars %>%
-  dplyr::mutate(airplane_reads = purrr::pmap(., run_simulation))
+  dplyr::mutate(
+    airplane_reads = purrr::pmap(select(., -replicate), run_simulation),
+    reads_heuristic = purrr::map_dbl(airplane_reads, first_day_n_reads, n = 10)
+  )
 
 saveRDS(out, "airplane-simulations.rds")
+
+pdf("m-tot-reads-heuristic.pdf", h = 5, w = 6.25)
+
+out %>%
+  select(m_tot, reads_heuristic) %>%
+  ggplot(aes(x = as_factor(m_tot), y = reads_heuristic)) +
+    geom_jitter(width = 0.1, alpha = 0.5) +
+    labs(x = "Total sequencing amount", y = "First day with above 10 reads of pathogen of interest") +
+    theme_minimal()
+
+dev.off()
+

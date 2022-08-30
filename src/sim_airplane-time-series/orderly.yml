@@ -12,6 +12,7 @@ artefacts:
         - airplane-infections.pdf
         - airplane-reads-deterministic.pdf
         - airplane-reads-stochastic.pdf
+        - m-tot-reads-heuristic.pdf
 
 packages:
   - dplyr
