@@ -1,0 +1,26 @@
+script: script.R
+
+sources:
+  - functions.R
+
+artefacts:
+  - data:
+      description: Simulated airplane metagenomics time-series data
+      filenames:
+        - airplane-infections.pdf
+        - airplane-reads-deterministic.pdf
+        - airplane-reads-stochastic.pdf
+
+packages:
+  - dplyr
+  - ggplot2
+  - rstan
+  - stringr
+  - tidyr
+  - drat
+  - dde
+  - odin
+  - odin.dust
+  - mcstate
+  - tictoc
+  - parallel
