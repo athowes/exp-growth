@@ -27,3 +27,6 @@ orderly::orderly_commit(id)
 
 id <- orderly::orderly_run("explore_compartmental")
 orderly::orderly_commit(id)
+
+id <- orderly::orderly_run("sim_airplane-time-series")
+orderly::orderly_commit(id)

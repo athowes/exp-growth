@@ -1,0 +1,337 @@
+---
+title: "Airplane simulation model demonstration"
+author:
+  - name: Adam Howes
+  - name: Charlie Whittaker
+output:
+  html_document:
+    toc: yes
+    toc_float: true
+    toc_collapsed: true
+    df_print: paged
+    code_folding: hide
+    theme: lumen
+abstract: |
+    **Background**
+    
+    **Task**
+    
+    **Findings**
+    
+    **Next steps**
+---
+
+```{r echo = FALSE, message=FALSE}
+knitr::opts_chunk$set(
+  echo = TRUE,
+  warning = FALSE,
+  message = FALSE,
+  dpi = 320,
+  out.width = "95%",
+  fig.align = 'center'
+)
+
+cbpalette <- c("#56B4E9", "#009E73", "#E69F00", "#F0E442", "#0072B2", "#D55E00", "#CC79A7", "#999999")
+
+library(tidyverse)
+```
+
+# Demonstration for one set of parameter values
+
+```{r}
+source("functions.R")
+
+set.seed(2)
+
+# Time-step duration
+dt <- 0.05
+
+# Final time point
+end <- 50
+
+mod <- stoch_seir_dust$new(
+  beta = 2,
+  gamma = 1,
+  sigma = 1,
+  population_size = 10^6,
+  start_infections = 10,
+  capacity_per_flight = 200, # Capacity of a Boeing 737 is around 200
+  num_flights = 50,
+  num_flightsAB = 25,
+  dt = dt,
+  virus_shed = 10,
+  non_virus_shed = 100000,
+  volume_wastewater = 500 * 10^6, # 500 litres = 500 * 1000 ml
+  shedding_freq = 1,
+  bias = 1,
+  m_tot = 10000000
+)
+
+output <- mod$run(1:(end / dt))
+transformed_output <- mod$transform_variables(output)
+
+extract_vars <- function(output, vars) {
+  state_df <- do.call(cbind, output[vars]) %>%
+    as.data.frame() %>%
+    pivot_longer(
+      -time,
+      names_to = "var",
+      values_to = "value"
+    )
+}
+
+state_df <- extract_vars(
+  output = transformed_output,
+  vars = c("time", "S", "E", "I", "R")
+)
+```
+
+## Background epidemic process
+
+```{r}
+ggplot(state_df, aes(x = time, y = value, colour = var)) +
+  geom_line() +
+  labs(x = "Time (days)", y = "Number of individuals in each state", col = "State") +
+  theme_minimal()
+```
+
+## Number of infections on each flight per day
+
+```{r}
+num_flightsAB <- mod$contents()[["num_flightsAB"]]
+indiv_flight_infections <- data.frame(time = transformed_output$time, transformed_output$n_inf_specific_flightABOut)
+colnames(indiv_flight_infections) <- c("time", paste0("flight", 1:num_flightsAB))
+
+airplane_infections_df <- indiv_flight_infections %>%
+  pivot_longer(
+    -time,
+    names_to = "flight",
+    values_to = "infections",
+    names_prefix = "flight",
+    names_transform = as.numeric
+  ) %>%
+  mutate(
+    day_interval = cut(time, breaks = max(time)),
+    day = cut_limit(day_interval, type = "upper")
+  ) %>%
+  group_by(flight, day) %>%
+  summarise(infections = sum(infections))
+
+ggplot(airplane_infections_df, aes(x = day, y = infections, group = day)) +
+  geom_boxplot(fill = NA, outlier.colour = NA, alpha = 0.1) +
+  geom_jitter(size = 0.5, width = 0.15, alpha = 0.5) +
+  theme(legend.position = "none") +
+  labs(x = "Time (days)", y = "Number of infections on each flight") +
+  theme_minimal()
+
+ggplot(airplane_infections_df, aes(x = day, y = infections, group = flight)) +
+  geom_line(alpha = 0.5) +
+  theme(legend.position = "none") +
+  labs(x = "Time (days)", y = "Number of infections on each flight") +
+  theme_minimal()
+```
+
+## Number of mapped reads on each flight per day (deterministic model)
+
+```{r}
+indiv_flight_reads <- data.frame(time = transformed_output$time, transformed_output$m_i_Out)
+colnames(indiv_flight_reads) <- c("time", paste0("flight", 1:num_flightsAB))
+
+airplane_reads_df <- indiv_flight_reads %>%
+  pivot_longer(
+    -time,
+    names_to = "flight",
+    values_to = "reads",
+    names_prefix = "flight",
+    names_transform = as.numeric
+  ) %>%
+  mutate(
+    day_interval = cut(time, breaks = max(time)),
+    day = cut_limit(day_interval, type = "upper")
+  ) %>%
+  group_by(flight, day) %>%
+  summarise(reads = sum(reads))
+
+ggplot(airplane_reads_df, aes(x = day, y = reads, group = day)) +
+  geom_boxplot(fill = NA, outlier.colour = NA, alpha = 0.1) +
+  geom_jitter(size = 0.5, width = 0.15, alpha = 0.5) +
+  theme(legend.position = "none") +
+  labs(x = "Time (days)", y = "Number of reads from each flight's wastewater") +
+  theme_minimal()
+
+ggplot(airplane_reads_df, aes(x = day, y = reads, group = flight)) +
+  geom_line(alpha = 0.5) +
+  theme(legend.position = "none") +
+  labs(x = "Time (days)", y = "Number of reads from each flight's wastewater") +
+  theme_minimal()
+```
+
+## Number of mapped reads on each flight per day (stochastic model)
+
+```{r}
+indiv_flight_reads <- data.frame(time = transformed_output$time, transformed_output$stoch_m_i_pois_Out)
+colnames(indiv_flight_reads) <- c("time", paste0("flight", 1:num_flightsAB))
+
+airplane_reads_df <- indiv_flight_reads %>%
+  pivot_longer(
+    -time,
+    names_to = "flight",
+    values_to = "reads",
+    names_prefix = "flight",
+    names_transform = as.numeric
+  ) %>%
+  mutate(
+    day_interval = cut(time, breaks = max(time)),
+    day = cut_limit(day_interval, type = "upper")
+  ) %>%
+  group_by(flight, day) %>%
+  summarise(reads = sum(reads))
+
+ggplot(airplane_reads_df, aes(x = day, y = reads, group = day)) +
+  geom_boxplot(fill = NA, outlier.colour = NA, alpha = 0.1) +
+  geom_jitter(size = 0.5, width = 0.15, alpha = 0.5) +
+  theme(legend.position = "none") +
+  labs(x = "Time (days)", y = "Number of reads from each flight's wastewater") +
+  theme_minimal()
+
+ggplot(airplane_reads_df, aes(x = day, y = reads, group = flight)) +
+  geom_line(alpha = 0.5) +
+  theme(legend.position = "none") +
+  labs(x = "Time (days)", y = "Number of reads from each flight's wastewater") +
+  theme_minimal()
+```
+
+# Running over a grid of parameter values
+
+We start by creating an experimental design.
+The particular experimental conditions can be varied in order to test different hypotheses.
+Here we vary the `m_tot` parameter.
+We use a `replicate` parameter taking values 1 to `n_replicates` to repeat each experimental condition a number of times as the results are stochastic.
+
+```{r}
+n_replicates <- 10
+
+pars <- expand.grid(
+  "beta" = 2,
+  "gamma" = 1,
+  "sigma" = 1,
+  "population_size" = 10^6,
+  "start_infections" = 10,
+  "capacity_per_flight" = 200,
+  "num_flights" = 50,
+  "num_flightsAB" = 25,
+  "dt" = 0.05,
+  "virus_shed" = 10,
+  "non_virus_shed" = 10^5,
+  "volume_wastewater" = 500 * 10^6,
+  "shedding_freq" = 1,
+  "bias" = 1,
+  "m_tot" = c(10^4, 10^5, 10^6, 10^7, 10^8, 10^9),
+  "replicate" = 1:n_replicates
+)
+
+pars
+```
+
+We create a function `run_simulation` which takes as input all of the parameters in `pars` (with the exception of `replicate`) then:
+
+* Creates an `odin` model with those parameter values
+* Runs the model
+* Extracts the number of reads from the pathogen of interest for each flight at each time-step
+* Returns a dataframe with reads aggregated over days
+
+```{r}
+run_simulation <- function(beta, gamma, sigma, population_size, start_infections,
+                           capacity_per_flight, num_flights, num_flightsAB, dt,
+                           virus_shed, non_virus_shed, volume_wastewater,
+                           shedding_freq, bias, m_tot) {
+  # Create odin model
+  mod <- stoch_seir_dust$new(
+    beta = beta,
+    gamma = gamma,
+    sigma = sigma,
+    population_size = population_size,
+    start_infections = start_infections,
+    capacity_per_flight = capacity_per_flight,
+    num_flights = num_flights,
+    num_flightsAB = num_flightsAB,
+    dt = dt,
+    virus_shed = virus_shed,
+    non_virus_shed = non_virus_shed,
+    volume_wastewater = volume_wastewater,
+    shedding_freq = shedding_freq,
+    bias = bias,
+    m_tot = m_tot
+  )
+
+  end <- 50
+  output <- mod$run(1:(end / dt))
+  transformed_output <- mod$transform_variables(output)
+
+  # Output number of reads from each flight (stochastic)
+  indiv_flight_reads <- data.frame(time = transformed_output$time, transformed_output$stoch_m_i_pois_Out)
+  colnames(indiv_flight_reads) <- c("time", paste0("flight", 1:num_flightsAB))
+
+  airplane_reads_df <- indiv_flight_reads %>%
+    pivot_longer(
+      -time,
+      names_to = "flight",
+      values_to = "reads",
+      names_prefix = "flight",
+      names_transform = as.numeric
+    ) %>%
+    mutate(
+      day_interval = cut(time, breaks = max(time)),
+      day = cut_limit(day_interval, type = "upper")
+    ) %>%
+    group_by(flight, day) %>%
+    summarise(reads = sum(reads))
+
+  return(airplane_reads_df)
+}
+```
+
+The output of `run_simulation` is a dataframe with columns for `flight`, `day` and `reads` that looks like:
+
+```{r}
+head(airplane_reads_df)
+```
+
+As a first version of a "detection" algorithm, we could use the first day that there are greater than $n$ reads aggregated over all flights.
+
+```{r}
+first_day_n_reads <- function(df, n = 10) {
+  df %>%
+    group_by(day) %>%
+    summarise(reads = sum(reads)) %>%
+    filter(reads >= 10) %>%
+    pull(day) %>%
+    min()
+}
+```
+
+Using the dataframe `pars` we can now use `purrr::pmap` to `mutate` a new list column `airplane_reads` containing the results of the function `run_simulate`.
+We then take `airplane_reads` and `mutate` a numeric column `reads_heuristic` using `purrr::map_dbl`.
+The result `out` can then be saved with `saveRDS`.
+
+```{r}
+out <- pars %>%
+  dplyr::mutate(
+    airplane_reads = purrr::pmap(select(., -replicate), run_simulation),
+    reads_heuristic = purrr::map_dbl(airplane_reads, first_day_n_reads, n = 10)
+  )
+
+saveRDS(out, "airplane-simulations.rds")
+```
+
+By looking at the `m_tot` and `reads_heuristic` column, we can start to answer relevant questions like "what is the effect of more sequencing effort on time to detection"?
+
+```{r}
+out %>%
+  select(m_tot, reads_heuristic) %>%
+  ggplot(aes(x = forcats::as_factor(m_tot), y = reads_heuristic, col = log10(m_tot))) +
+    geom_boxplot(fill = NA, outlier.colour = NA, alpha = 0.1) +
+    geom_jitter(size = 0.5, width = 0.15, alpha = 0.5) +
+    labs(x = "Total sequencing amount", y = "First day with above 10 reads of pathogen of interest", col = "log10(Total sequencing amount)") +
+    theme_minimal()
+```
