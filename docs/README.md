@@ -25,3 +25,8 @@
 * [catchment](https://athowes.github.io/exp-growth/catchment): note on possible approach to comparing catchment sizes, and abundance versus concentration
 * [ppp-model](https://athowes.github.io/exp-growth/ppp-model): suggesting notation for pandemic potential pathogen research
 * [reads](https://athowes.github.io/exp-growth/reads): check of calculation on reads or basepairs required
+
+## Google docs
+
+* [Statistical considerations for exponential growth detection](https://docs.google.com/document/d/1Rb814ZN6_5p609IjElUg7tjtl5KmU_WEk9Tii5uouqs/edit?usp=sharing): broad considerations on statistical performance
+* [Evaluating exponential growth detection](https://docs.google.com/document/d/1wSi6RknvA91mEB7gY8icdcUPHP7kEObhdwXDb5D9FAY/edit?usp=sharing): possible evaluation metrics for when we do and do not know the ground truth
