@@ -6,6 +6,12 @@ library(posterior)
 #' Colour-blind friendly colours
 cbpalette <- c("#56B4E9", "#009E73", "#E69F00", "#F0E442", "#0072B2", "#D55E00", "#CC79A7", "#999999")
 
+#' Further NIMBLE resources
+#' * https://r-nimble.org/cheatsheets/NimbleCheatSheet.pdf
+#' * https://r-nimble.org/
+#' * https://github.com/danielturek/nimble-inra-2019
+#' * https://oliviergimenez.github.io/hmm-cr-nimble-isec2022-workshop/
+
 branching_hmm <- nimbleCode({
   N_cont ~ dunif(0, 1000)
   N <- round(N_cont)
