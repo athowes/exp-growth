@@ -9,6 +9,7 @@
 * [explain-poisson](https://athowes.github.io/exp-growth/explain-poisson): explaining why Poisson regression might be suitable for exponential growth detection
 * [metagenomic-time-series](https://athowes.github.io/exp-growth/metagenomic-time-series): simulating metagenomic time-series data in an exponential and baseline regime.
 * [poisson-regression-theory](https://athowes.github.io/exp-growth/poisson-regression-theory): some theory for Poisson regression standard errors
+* [001](https://athowes.github.io/exp-growth/001): exploring the problem with small counts
 
 ## Measurement
 

@@ -1,0 +1,91 @@
+---
+title: "Poisson regression on small data with MCMC"
+author: "Adam Howes"
+output:
+  html_document:
+    toc: yes
+    toc_float: true
+    toc_collapsed: true
+    df_print: paged
+    theme: lumen
+---
+
+# Model
+
+$$
+y_t \sim \text{Pois}(\lambda_t) \\
+\lambda_t = \exp(a + rt) \\
+a \sim \mathcal{N}(0, 1000^2) \\
+r \sim \mathcal{N}(0, 1000^2)
+$$
+# Set-up
+
+```{r results=FALSE, message=FALSE, warning=FALSE}
+library(rstan)
+library(brms)
+library(tidyverse)
+library(bayesplot)
+```
+
+Length of the data:
+
+```{r}
+n <- 10
+```
+
+Observation vector:
+
+```{r}
+y <- c(rep(0, n - 1), 1)
+y
+```
+
+Time covariate:
+
+```{r}
+t <- 1:n
+t
+```
+
+# Sampling
+
+Use `brms` to fit the model with very flat priors:
+
+```{r results=FALSE, message=FALSE, warning=FALSE}
+fit <- brm(
+  y ~ t,
+  data = list(y = y, t = t),
+  family = poisson,
+  refresh = 0,
+  prior = prior(normal(0, 1000), class = "Intercept") +
+    prior(normal(0, 1000), class = "b")
+)
+```
+
+# Analysis
+
+```{r}
+bayesplot::mcmc_trace(fit)
+bayesplot::mcmc_hist(fit)
+```
+
+Extract the draws from the Markov chain for $r$ and compute the fraction $> 0$:
+
+```{r}
+draws <- as_draws_df(fit) %>%
+  rownames_to_column()
+sum(draws$b_t > 0) / length(draws$b_t)
+```
+
+Extract a few draws from the straight lines:
+
+```{r}
+n_line <- 15
+sample_draws <- draws[sample(nrow(draws), size = n_line), ]
+  
+ggplot(sample_draws, aes(intercept = b_Intercept, slope = b_t)) +
+  geom_abline(aes(intercept = b_Intercept, slope = b_t, col = as.factor(rowname))) +
+  xlim(c(0, 10)) + ylim(c(-1000,  1)) +
+  theme_minimal() +
+  labs(col = "MCMC iteration")
+```
