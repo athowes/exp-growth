@@ -1,0 +1,28 @@
+---
+title: "Resources on metagenomics and other topics"
+author:
+- name: Adam Howes
+output:
+  html_document:
+    toc: yes
+    toc_float: yes
+    toc_collapsed: yes
+    df_print: paged
+    code_folding: show
+    theme: lumen
+abstract: |
+  A compliation of links to resources which I've found useful while working on `exp-growth`.
+---
+
+* [E-detectors: a nonparametric framework for online changepoint detection](https://arxiv.org/pdf/2203.03532.pdf)
+* [Bayesian Multinomial Logistic Normal Models through Marginally Latent Matrix-T Processes](https://www.jmlr.org/papers/volume23/19-882/19-882.pdf)
+* [How good is a PCR efficiency estimate: Recommendations for precise and robust qPCR efficiency assessments](https://www.sciencedirect.com/science/article/pii/S2214753515000169)
+* [Analyzing RNA-seq data with DESeq2](https://bioconductor.org/packages/release/bioc/vignettes/DESeq2/inst/doc/DESeq2.html)
+* [Splatter: simulation of single-cell RNA sequencing data](https://genomebiology.biomedcentral.com/counter/pdf/10.1186/s13059-017-1305-0.pdf)
+* [ALF—A Simulation Framework for Genome Evolution](https://academic.oup.com/mbe/article/29/4/1115/1188345?login=true)
+* [Latent Dirichlet Allocation for Metagenomics: testing an initial assumption](http://rdinnager.github.io/LDA-metagenomics/assumption_test)
+* [Efficient Markov chain Monte Carlo sampling for hierarchical hidden Markov models](https://link.springer.com/content/pdf/10.1007/s10651-016-0353-z.pdf)
+* [Stochastic modelling, Bayesian inference, and new in vivo measurements elucidate the debated mtDNA bottleneck mechanism](https://elifesciences.org/articles/07464)
+* [Bayesian Inference for Absolute Quantification of Mitochondrial DNA](https://dariadicu.github.io/index.html)
+* [The Future of qPCR Webinar Q&A](https://www.gene-quantification.de/miqe-webinar-short-transcript.pdf)
+* [QuantStudio 6 and 7 Flex Real-Time PCR System Software](https://www.bio.purdue.edu/lab/kasinski/LabDocs/Quant%20Studio%206%20Software%20Guide.pdf)

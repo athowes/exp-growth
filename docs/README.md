@@ -27,6 +27,7 @@
 * [catchment](https://athowes.github.io/exp-growth/catchment): note on possible approach to comparing catchment sizes, and abundance versus concentration
 * [ppp-model](https://athowes.github.io/exp-growth/ppp-model): suggesting notation for pandemic potential pathogen research
 * [reads](https://athowes.github.io/exp-growth/reads): check of calculation on reads or basepairs required
+* [resources](https://athowes.github.io/exp-growth/resources): links to resources I've found useful
 
 ## Google docs
 
